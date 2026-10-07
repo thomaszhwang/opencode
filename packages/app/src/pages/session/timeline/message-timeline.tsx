@@ -61,7 +61,9 @@ import { useFileComponent } from "@opencode-ai/ui/context/file"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { useLanguage } from "@/context/language"
+import { useSessionTags } from "@/context/session-tags"
 import { useSessionKey } from "@/pages/session/session-layout"
 import { useSessionArchive } from "@/pages/session/session-archive"
 import { useServerSDK } from "@/context/server-sdk"
@@ -265,6 +267,7 @@ export function MessageTimeline(props: {
   const settings = useSettings()
   const dialog = useDialog()
   const sessionArchive = useSessionArchive()
+  const sessionTags = useSessionTags()
   const language = useLanguage()
   const { params, sessionKey } = useSessionKey()
   const ownerSessionKey = sessionKey()
@@ -298,6 +301,10 @@ export function MessageTimeline(props: {
   })
   const titleValue = createMemo(() => info()?.title)
   const titleLabel = createMemo(() => sessionTitle(titleValue()))
+  const tags = createMemo(() => {
+    const id = sessionID()
+    return id ? sessionTags.tags(id) : []
+  })
   const shareUrl = createMemo(() => info()?.share?.url)
   const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
   const parentID = createMemo(() => info()?.parentID)
@@ -1462,6 +1469,32 @@ export function MessageTimeline(props: {
                         onBlur={saveTitleEditor}
                       />
                     </Show>
+                  </Show>
+                  <Show when={!title.editing && tags().length > 0}>
+                    <button
+                      type="button"
+                      data-slot="session-title-tags"
+                      class="flex min-w-0 items-center gap-1 overflow-hidden rounded-[6px] px-1 py-0.5 hover:bg-v2-overlay-simple-overlay-hover"
+                      onClick={() => {
+                        const session = info()
+                        if (!session) return
+                        void dialog.show(() => <DialogSessionTags session={session} />)
+                      }}
+                      aria-label={language.t("dialog.session.tags.title")}
+                    >
+                      <For each={tags()}>
+                        {(tag) => (
+                          <span
+                            class={`
+                              shrink-0 rounded-[4px] bg-v2-background-bg-layer-02 px-1.5 py-0.5
+                              text-[11px] leading-3 text-v2-text-text-muted [font-weight:440]
+                            `}
+                          >
+                            {tag}
+                          </span>
+                        )}
+                      </For>
+                    </button>
                   </Show>
                 </div>
               </div>
