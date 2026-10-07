@@ -34,7 +34,7 @@ export type HomeSessionRecord = {
 }
 
 export type HomeSessionGroup = {
-  id: "today" | "yesterday" | "older"
+  id: "today" | "yesterday" | "older" | "done"
   title: string
   sessions: HomeSessionRecord[]
 }
@@ -117,7 +117,7 @@ export function createHomeSessionsController(home: HomeController) {
     }
     return counts
   })
-  const groups = createMemo(() => groupSessions(records(), language))
+  const groups = createMemo(() => groupSessions(records(), language, tags.tags))
   const prefetched = new Set<string>()
 
   createEffect(() => {
@@ -311,16 +311,26 @@ export function homeSessionSearchKey(record: HomeSessionRecord) {
   return `${pathKey(record.session.directory)}:${record.session.id}`
 }
 
-function groupSessions(records: HomeSessionRecord[], language: ReturnType<typeof useLanguage>): HomeSessionGroup[] {
+function groupSessions(
+  records: HomeSessionRecord[],
+  language: ReturnType<typeof useLanguage>,
+  tags: (sessionID: string) => string[],
+): HomeSessionGroup[] {
   const now = DateTime.local()
   const yesterday = now.minus({ days: 1 })
-  const todaySessions = records.filter((record) =>
+  // Sessions tagged "done" (the well-known status tag, matched case-insensitively)
+  // leave the time-based groups and sink into a dedicated group at the bottom.
+  const isDone = (record: HomeSessionRecord) =>
+    tags(record.session.id).some((tag) => tag.toLowerCase() === "done")
+  const doneSessions = records.filter(isDone)
+  const pending = records.filter((record) => !isDone(record))
+  const todaySessions = pending.filter((record) =>
     DateTime.fromMillis(record.session.time.updated ?? record.session.time.created).hasSame(now, "day"),
   )
-  const yesterdaySessions = records.filter((record) =>
+  const yesterdaySessions = pending.filter((record) =>
     DateTime.fromMillis(record.session.time.updated ?? record.session.time.created).hasSame(yesterday, "day"),
   )
-  const olderSessions = records.filter((record) => {
+  const olderSessions = pending.filter((record) => {
     const time = DateTime.fromMillis(record.session.time.updated ?? record.session.time.created)
     return !time.hasSame(now, "day") && !time.hasSame(yesterday, "day")
   })
@@ -332,6 +342,7 @@ function groupSessions(records: HomeSessionRecord[], language: ReturnType<typeof
     { id: "today" as const, title: language.t("home.sessions.group.today"), sessions: todaySessions },
     { id: "yesterday" as const, title: language.t("home.sessions.group.yesterday"), sessions: yesterdaySessions },
     { id: "older" as const, title: olderTitle, sessions: olderSessions },
+    { id: "done" as const, title: language.t("home.sessions.group.done"), sessions: doneSessions },
   ].filter((group) => group.sessions.length > 0)
 }
 

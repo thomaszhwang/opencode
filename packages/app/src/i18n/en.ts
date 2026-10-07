@@ -663,6 +663,7 @@ export const dict = {
   "home.sessions.group.today": "Today",
   "home.sessions.group.yesterday": "Yesterday",
   "home.sessions.group.older": "Older",
+  "home.sessions.group.done": "Done",
   "home.sessions.labels.new": "New label",
   "home.sessions.tags.edit": "Edit tags",
   "dialog.session.tags.title": "Edit tags",
