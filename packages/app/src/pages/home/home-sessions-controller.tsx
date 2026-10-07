@@ -14,6 +14,9 @@ import {
 import type { LocalProject } from "@/context/layout"
 import { useLanguage } from "@/context/language"
 import { ServerConnection } from "@/context/server"
+import { useSessionTags } from "@/context/session-tags"
+import { DialogSessionLabel } from "@/components/dialog-session-label"
+import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
@@ -43,6 +46,7 @@ export function createHomeSessionsController(home: HomeController) {
   const command = useCommand()
   const dialog = useDialog()
   const language = useLanguage()
+  const tags = useSessionTags()
   const projectDirectories = createMemo(() => {
     const project = home.project.selected()
     if (!project) return home.project.list().flatMap(directories)
@@ -79,10 +83,12 @@ export function createHomeSessionsController(home: HomeController) {
     refetchOnMount: true,
     refetchOnReconnect: true,
   }))
+  // Once labels exist, retain the full session history so label matching and
+  // counts cover every session, not just the most recent HOME_SESSION_LIMIT.
   const indexedSessions = createMemo(() =>
     retainHomeSessions(
       homeSessions().sessions(sessionLoad.data, sessionEventLoad.data),
-      HOME_SESSION_LIMIT,
+      tags.labels().length > 0 ? Number.MAX_SAFE_INTEGER : HOME_SESSION_LIMIT,
       Date.now(),
     ),
   )
@@ -94,7 +100,23 @@ export function createHomeSessionsController(home: HomeController) {
       projectByID,
     }),
   )
-  const records = createMemo(() => allRecords().slice(0, HOME_SESSION_LIMIT))
+  const records = createMemo(() => {
+    const label = tags.active()
+    if (!label) return allRecords().slice(0, HOME_SESSION_LIMIT)
+    return allRecords().filter((record) => tags.match(record.session.id, label))
+  })
+  const labelCounts = createMemo(() => {
+    const counts = new Map<string, number>()
+    const all = allRecords()
+    for (const label of tags.labels()) {
+      let count = 0
+      for (const record of all) {
+        if (tags.match(record.session.id, label)) count++
+      }
+      counts.set(label.id, count)
+    }
+    return counts
+  })
   const groups = createMemo(() => groupSessions(records(), language))
   const prefetched = new Set<string>()
 
@@ -239,6 +261,20 @@ export function createHomeSessionsController(home: HomeController) {
     tab: {
       isOpen: (record: HomeSessionRecord) =>
         sessionHasOpenTab(tabs.store, home.selection.value().server, record.session),
+    },
+    tags: {
+      for: tags.tags,
+      labels: tags.labels,
+      counts: labelCounts,
+      active: tags.active,
+      select: tags.select,
+      remove: tags.removeLabel,
+      edit: (session: Session) => {
+        void dialog.show(() => <DialogSessionTags session={session} />)
+      },
+      create: () => {
+        void dialog.show(() => <DialogSessionLabel />)
+      },
     },
   }
 }

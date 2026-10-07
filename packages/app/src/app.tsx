@@ -46,6 +46,7 @@ import { ServerSyncProvider, useServerSync } from "@/context/server-sync"
 import { GlobalProvider, useGlobal } from "@/context/global"
 import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
+import { SessionTagsProvider } from "@/context/session-tags"
 import { LayoutProvider } from "@/context/layout"
 import { ModelsProvider } from "@/context/models"
 import { NotificationProvider } from "@/context/notification"
@@ -415,7 +416,9 @@ export function AppBaseProviders(
               <QueryProvider>
                 <WslServersProvider>
                   <DialogProvider>
-                    <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+                    <SessionTagsProvider>
+                      <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+                    </SessionTagsProvider>
                   </DialogProvider>
                 </WslServersProvider>
               </QueryProvider>
