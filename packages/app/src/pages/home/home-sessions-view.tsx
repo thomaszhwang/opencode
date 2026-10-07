@@ -23,6 +23,13 @@ import {
 const SHOW_HOME_SESSION_ARCHIVE = false
 const HOME_SECTION_LABEL = "text-v2-text-text-muted [font-weight:440]"
 const HOME_SESSION_SEARCH_RESULTS_ID = "home-session-search-results"
+// Sessions tagged with these names (case-insensitive) light up a fixed status
+// icon in the row instead of showing a text pill.
+const HOME_SESSION_STATUS_TAGS = [
+  { tag: "done", icon: "check", activeClass: "text-v2-state-fg-success" },
+  { tag: "important", icon: "star", activeClass: "text-v2-state-fg-warning" },
+  { tag: "urgent", icon: "flame", activeClass: "text-v2-state-fg-danger" },
+] as const
 
 // Middle-click or Cmd+click on macOS (Ctrl+click elsewhere) opens a session
 // tab in the background without navigating, matching browser conventions.
@@ -506,6 +513,13 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
   const title = createMemo(() => sessionTitle(props.record.session.title) || props.record.session.id)
   const showProjectName = () => props.showProjectName() && props.record.projectName
   const tags = createMemo(() => props.sessionTags(props.record.session.id))
+  const statusTags = createMemo(() => {
+    const present = new Set(tags().map((tag) => tag.toLowerCase()))
+    return HOME_SESSION_STATUS_TAGS.map((status) => ({ ...status, active: present.has(status.tag) }))
+  })
+  const pillTags = createMemo(() =>
+    tags().filter((tag) => !HOME_SESSION_STATUS_TAGS.some((status) => status.tag === tag.toLowerCase())),
+  )
 
   return (
     <div
@@ -531,6 +545,20 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
           props.onOpenSession(props.record.session, { background: true })
         }}
       >
+        <span class="flex shrink-0 items-center gap-1">
+          <For each={statusTags()}>
+            {(status) => (
+              <IconV2
+                name={status.icon}
+                size="small"
+                classList={{
+                  [status.activeClass]: status.active,
+                  "text-v2-icon-icon-muted opacity-30": !status.active,
+                }}
+              />
+            )}
+          </For>
+        </span>
         <HomeSessionLeadingController
           server={props.server}
           isOpenTab={props.isOpenTab}
@@ -541,9 +569,9 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
         <Show when={showProjectName()}>
           <HomeSessionProjectName name={props.record.projectName} />
         </Show>
-        <Show when={tags().length > 0}>
+        <Show when={pillTags().length > 0}>
           <span class="flex min-w-0 shrink-0 items-center gap-1">
-            <For each={tags().slice(0, 3)}>
+            <For each={pillTags().slice(0, 3)}>
               {(tag) => (
                 <span
                   class={`
@@ -555,8 +583,10 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
                 </span>
               )}
             </For>
-            <Show when={tags().length > 3}>
-              <span class="text-[11px] leading-3 text-v2-text-text-faint [font-weight:440]">+{tags().length - 3}</span>
+            <Show when={pillTags().length > 3}>
+              <span class="text-[11px] leading-3 text-v2-text-text-faint [font-weight:440]">
+                +{pillTags().length - 3}
+              </span>
             </Show>
           </span>
         </Show>
