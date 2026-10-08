@@ -72,6 +72,18 @@ describe("groupHomeSessions", () => {
     expect(ids(groups, "recent")).toEqual(["d"])
   })
 
+  test("matches bare and namespaced initiative tags, but not lookalike prefixes", () => {
+    const groups = group([
+      { id: "bare", tags: ["Initiative"] },
+      { id: "namespaced", tags: ["Initiative:PlanetScale"] },
+      { id: "namespaced-lower", tags: ["initiative:schema-registry"] },
+      { id: "prefixed", tags: ["initiativex:foo"] },
+      { id: "hyphenated", tags: ["initiative-foo"] },
+    ])
+    expect(ids(groups, "initiatives")).toEqual(["bare", "namespaced", "namespaced-lower"])
+    expect(ids(groups, "recent")).toEqual(["prefixed", "hyphenated"])
+  })
+
   test("places a session in every top section whose tag it carries", () => {
     const groups = group([{ id: "multi", tags: ["harness", "initiative", "user-request"] }])
     expect(ids(groups, "initiatives")).toEqual(["multi"])
@@ -98,6 +110,17 @@ describe("groupHomeSessions", () => {
     expect(groups.map((group) => group.id)).toEqual(["abandoned", "done"])
     expect(ids(groups, "abandoned")).toEqual(["abandoned-harness"])
     expect(ids(groups, "done")).toEqual(["done-initiative"])
+  })
+
+  test("terminal tags still win over namespaced initiative tags", () => {
+    const groups = group([
+      { id: "done-namespaced", tags: ["done", "Initiative:PlanetScale"] },
+      { id: "abandoned-namespaced", tags: ["abandoned", "initiative:x"] },
+    ])
+    expect(groups.map((group) => group.id)).toEqual(["abandoned", "done"])
+    expect(ids(groups, "abandoned")).toEqual(["abandoned-namespaced"])
+    expect(ids(groups, "done")).toEqual(["done-namespaced"])
+    expect(ids(groups, "initiatives")).toBeUndefined()
   })
 
   test("a session with both terminal tags appears in both terminal sections", () => {
