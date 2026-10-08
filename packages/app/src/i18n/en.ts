@@ -669,6 +669,7 @@ export const dict = {
   "home.sessions.group.done": "Done",
   "home.sessions.labels.new": "New label",
   "home.sessions.tags.edit": "Edit tags",
+  "home.sessions.note.edit": "Edit note",
   "dialog.session.tags.title": "Edit tags",
   "dialog.session.tags.placeholder": "Add a tag",
   "dialog.session.note.title": "Edit note",

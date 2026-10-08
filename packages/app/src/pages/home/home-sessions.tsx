@@ -32,6 +32,7 @@ export function HomeSessions(props: {
       onCreateLabel={props.sessions.tags.create}
       onRemoveLabel={props.sessions.tags.remove}
       onEditTags={props.sessions.tags.edit}
+      onEditNote={props.sessions.note.edit}
       onCreateSession={props.sessions.session.create}
       onOpenSession={props.sessions.session.open}
       onArchiveSession={props.sessions.session.archive}

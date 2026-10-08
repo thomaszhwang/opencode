@@ -12,6 +12,7 @@ import type { SessionLabel } from "@/context/session-tags"
 import { SessionTabAvatarView } from "@/pages/layout/session-tab-avatar"
 import { sessionTitle } from "@/utils/session-title"
 import { shouldOpenSessionInBackground } from "../home-session-open"
+import { homeSessionNotePinned } from "./home-session-note"
 import {
   HomeSessionStatusController,
   homeSessionSearchKey,
@@ -67,6 +68,7 @@ export type HomeSessionsViewProps = {
   onCreateLabel: () => void
   onRemoveLabel: (id: string) => void
   onEditTags: (session: Session) => void
+  onEditNote: (session: Session) => void
   onCreateSession: () => void
   onOpenSession: (session: Session, options?: OpenSessionOptions) => void
   onArchiveSession: (session: Session) => Promise<void>
@@ -520,6 +522,7 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
   const pillTags = createMemo(() =>
     tags().filter((tag) => !HOME_SESSION_STATUS_TAGS.some((status) => status.tag === tag.toLowerCase())),
   )
+  const notePinned = createMemo(() => homeSessionNotePinned(props.record.session))
 
   return (
     <div
@@ -591,26 +594,52 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
           </span>
         </Show>
       </button>
-      <div
-        class={`
-          hover-reveal absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1
-          group-hover/session:opacity-100 focus-within:opacity-100
-        `}
-      >
-        <TooltipV2 class="flex shrink-0 items-center" placement="bottom" value={props.language.t("home.sessions.tags.edit")}>
-          <IconButtonV2
-            data-action="home-session-tags"
-            variant="ghost-muted"
-            size="large"
-            icon={<IconV2 name="tag" />}
-            aria-label={props.language.t("home.sessions.tags.edit")}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              props.onEditTags(props.record.session)
-            }}
-          />
-        </TooltipV2>
+      <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+        <span
+          class="flex shrink-0 items-center"
+          classList={{
+            "hover-reveal group-hover/session:opacity-100 focus-within:opacity-100": !notePinned(),
+          }}
+        >
+          <TooltipV2
+            class="flex shrink-0 items-center"
+            placement="bottom"
+            value={props.language.t("home.sessions.note.edit")}
+          >
+            <IconButtonV2
+              data-action="home-session-note"
+              variant="ghost-muted"
+              size="large"
+              icon={<IconV2 name="note" />}
+              aria-label={props.language.t("home.sessions.note.edit")}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                props.onEditNote(props.record.session)
+              }}
+            />
+          </TooltipV2>
+        </span>
+        <span class="hover-reveal flex shrink-0 items-center group-hover/session:opacity-100 focus-within:opacity-100">
+          <TooltipV2
+            class="flex shrink-0 items-center"
+            placement="bottom"
+            value={props.language.t("home.sessions.tags.edit")}
+          >
+            <IconButtonV2
+              data-action="home-session-tags"
+              variant="ghost-muted"
+              size="large"
+              icon={<IconV2 name="tag" />}
+              aria-label={props.language.t("home.sessions.tags.edit")}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                props.onEditTags(props.record.session)
+              }}
+            />
+          </TooltipV2>
+        </span>
       </div>
       <Show when={SHOW_HOME_SESSION_ARCHIVE}>
         <div
