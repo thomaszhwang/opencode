@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import type { Session } from "@opencode-ai/sdk/v2/client"
-import { normalizeSessionTags, sessionMatchesLabel, sessionTagsFromMetadata, toggleSessionTag } from "./session-tags"
+import {
+  isInitiativeMember,
+  normalizeSessionTags,
+  sessionMatchesLabel,
+  sessionTagsFromMetadata,
+  toggleSessionTag,
+} from "./session-tags"
 
 function sessionWithMetadata(metadata: unknown): Session {
   return { metadata } as Session
@@ -73,5 +79,26 @@ describe("sessionTagsFromMetadata", () => {
   test("ignores non-array and non-string values", () => {
     expect(sessionTagsFromMetadata(sessionWithMetadata({ tags: "fleet" }))).toEqual([])
     expect(sessionTagsFromMetadata(sessionWithMetadata({ tags: ["fleet", 1, null] }))).toEqual(["fleet"])
+  })
+})
+
+describe("isInitiativeMember", () => {
+  test("matches the namespaced tag stored as written, case-insensitively", () => {
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["Initiative:PlanetScale"] }), "PlanetScale")).toBe(true)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["initiative:planetscale"] }), "PlanetScale")).toBe(true)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["INITIATIVE:PLANETSCALE"] }), "planetscale")).toBe(true)
+  })
+
+  test("ignores other tags, the bare initiative tag, and near-miss prefixes", () => {
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["fleet"] }), "PlanetScale")).toBe(false)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["initiative"] }), "PlanetScale")).toBe(false)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["initiativex:PlanetScale"] }), "PlanetScale")).toBe(false)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["initiative-PlanetScale"] }), "PlanetScale")).toBe(false)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: ["initiative:Other"] }), "PlanetScale")).toBe(false)
+  })
+
+  test("returns false for a session without tags", () => {
+    expect(isInitiativeMember(sessionWithMetadata(undefined), "PlanetScale")).toBe(false)
+    expect(isInitiativeMember(sessionWithMetadata({ tags: [] }), "PlanetScale")).toBe(false)
   })
 })

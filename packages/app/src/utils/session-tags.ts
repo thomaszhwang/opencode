@@ -28,6 +28,12 @@ export function toggleSessionTag(tags: string[], tag: string): string[] {
   return normalizeSessionTags([...tags, key])
 }
 
+// Initiative membership is the `Initiative:<Name>` tag, matched case-insensitively (D1).
+export function isInitiativeMember(session: Session, name: string) {
+  const target = `initiative:${name.toLowerCase()}`
+  return sessionTagsFromMetadata(session).some((tag) => tag.toLowerCase() === target)
+}
+
 // Session tags are stored server-side in the session's metadata record and
 // reach the app through the synced session info cache.
 export function sessionTagsFromMetadata(session: Session | undefined): string[] {
