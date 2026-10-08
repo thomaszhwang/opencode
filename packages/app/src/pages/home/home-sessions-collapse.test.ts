@@ -7,20 +7,20 @@ describe("groupCollapseDefault", () => {
     expect(groupCollapseDefault("done")).toBe(true)
   })
 
-  test("expands the time groups by default", () => {
-    const ids: HomeSessionGroupId[] = ["today", "yesterday", "older"]
-    expect(ids.map(groupCollapseDefault)).toEqual([false, false, false])
+  test("expands the other groups by default", () => {
+    const ids: HomeSessionGroupId[] = ["initiatives", "userRequests", "harness", "recent", "abandoned"]
+    expect(ids.map(groupCollapseDefault)).toEqual([false, false, false, false, false])
   })
 })
 
 describe("resolveGroupCollapsed", () => {
   test("falls back to the default when no entry is stored", () => {
     expect(resolveGroupCollapsed({}, "done")).toBe(true)
-    expect(resolveGroupCollapsed({}, "today")).toBe(false)
+    expect(resolveGroupCollapsed({}, "recent")).toBe(false)
   })
 
   test("a stored true wins over an expanded default", () => {
-    expect(resolveGroupCollapsed({ today: true }, "today")).toBe(true)
+    expect(resolveGroupCollapsed({ recent: true }, "recent")).toBe(true)
   })
 
   test("a stored false wins over a collapsed default", () => {
