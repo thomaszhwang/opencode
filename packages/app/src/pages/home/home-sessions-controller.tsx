@@ -2,8 +2,8 @@ import type { Session } from "@opencode-ai/sdk/v2/client"
 import { preloadMarkdown } from "@opencode-ai/session-ui/markdown-cache"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useQuery } from "@tanstack/solid-query"
-import { type Accessor, createEffect, createMemo, createRoot, type JSX, startTransition } from "solid-js"
-import { produce } from "solid-js/store"
+import { type Accessor, createEffect, createMemo, createResource, createRoot, type JSX, startTransition } from "solid-js"
+import { createStore, produce } from "solid-js/store"
 import { useCommand } from "@/context/command"
 import {
   loadHomeSessionIndex,
@@ -27,10 +27,12 @@ import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
 import { pathKey } from "@/utils/path-key"
+import { Persist, persisted } from "@/utils/persist"
 import { showToast } from "@/utils/toast"
 import { Binary } from "@opencode-ai/core/util/binary"
 import { archiveHomeSession } from "../home-session-archive"
 import type { HomeController } from "./home-controller"
+import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
 
 const HOME_SESSION_LIMIT = 64
@@ -146,6 +148,15 @@ export function createHomeSessionsController(home: HomeController) {
       },
     }),
   )
+  const [_state, setState, _, ready] = persisted(
+    Persist.global("home.sessions", ["home.sessions.v1"]),
+    createStore({ collapsed: {} as Partial<Record<HomeSessionGroupId, boolean>> }),
+  )
+  const [state] = createResource(
+    () => ready.promise ?? Promise.resolve(),
+    (promise) => promise.then(() => _state),
+    { initialValue: _state },
+  )
   const prefetched = new Set<string>()
 
   createEffect(() => {
@@ -222,6 +233,11 @@ export function createHomeSessionsController(home: HomeController) {
       groups,
       loading: () => sessionLoad.isLoading,
       searchRecords: allRecords,
+    },
+    groups: {
+      collapsed: (id: HomeSessionGroupId) => resolveGroupCollapsed(state().collapsed, id),
+      toggleCollapsed: (id: HomeSessionGroupId) =>
+        setState("collapsed", id, !resolveGroupCollapsed(state().collapsed, id)),
     },
     session: {
       showProjectName: () => !home.project.selected(),
