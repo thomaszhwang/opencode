@@ -1,5 +1,11 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { type Accessor, createMemo, For, Show, Suspense } from "solid-js"
+import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
+import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
+import { AutoScroller, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
+import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
+import { RestrictToElement } from "@dnd-kit/dom/modifiers"
+import { closestCenter } from "@dnd-kit/collision"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
@@ -50,6 +56,7 @@ export type HomeSessionsViewProps = {
   groups: Accessor<HomeSessionGroup[]>
   groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
   onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
+  onMoveGroup: (id: HomeSessionGroup["id"], toIndex: number) => void
   showProjectName: Accessor<boolean>
   server: Accessor<ServerConnection.Key>
   canCreateSession: Accessor<boolean>
@@ -93,6 +100,8 @@ export type HomeSessionsViewProps = {
 }
 
 export function HomeSessionsView(props: HomeSessionsViewProps) {
+  let listRef!: HTMLDivElement
+
   return (
     <section
       ref={props.onSetHoverTarget}
@@ -143,39 +152,49 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
               />
             }
           >
-            <div ref={props.onSetContent} class="flex flex-col pt-3 pr-3 pb-16">
-              <For each={props.groups()}>
-                {(group, index) => {
-                  const collapsed = () => props.groupCollapsed(group.id)
-                  return (
-                    <>
-                      <HomeSessionGroupHeader
-                        title={
-                          group.id === "done" && collapsed()
-                            ? props.language.t("home.sessions.group.done.count", { count: group.sessions.length })
-                            : group.title
-                        }
-                        titleOpacity={props.titleOpacity(group.id)}
-                        onSetRef={(element) => props.onSetHeader(group.id, element)}
-                        elevated={index() === 0}
-                        collapse={
-                          group.id === "done"
-                            ? { collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(group.id) }
-                            : undefined
-                        }
-                      />
-                      <Show when={!(group.id === "done" && collapsed())}>
-                        <div
-                          class={`flex min-w-0 flex-col gap-px pt-4 ${index() === props.groups().length - 1 ? "" : "mb-6"}`}
-                        >
-                          <For each={group.sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
-                        </div>
-                      </Show>
-                    </>
-                  )
+            <DragDropProvider
+              sensors={(defaults) => [
+                ...defaults.filter((sensor) => sensor !== PointerSensor),
+                PointerSensor.configure({
+                  activationConstraints: (event) =>
+                    event.pointerType === "touch"
+                      ? [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })]
+                      : [new PointerActivationConstraints.Distance({ value: 4 })],
+                  preventActivation: (event) =>
+                    event.target instanceof Element && !!event.target.closest("[data-action]"),
+                }),
+              ]}
+              modifiers={[RestrictToVerticalAxis, RestrictToElement.configure({ element: () => listRef })]}
+              plugins={(defaults) => [
+                ...defaults.filter((plugin) => plugin !== AutoScroller && plugin !== Feedback),
+                AutoScroller.configure({ acceleration: 8, threshold: { x: 0, y: 0.05 } }),
+                Feedback.configure({ dropAnimation: null }),
+              ]}
+              onDragEnd={(event) => {
+                const source = event.operation.source
+                if (event.canceled || !isSortable(source)) return
+                if (source.initialIndex !== source.index)
+                  props.onMoveGroup(source.id.toString() as HomeSessionGroup["id"], source.index)
+              }}
+            >
+              <div
+                ref={(element) => {
+                  listRef = element
+                  props.onSetContent(element)
                 }}
-              </For>
-            </div>
+                class="flex flex-col pt-3 pr-3 pb-16"
+              >
+                {/* Keyed on group id: the group objects are recreated on every
+                    store or sync update, so iterating them directly remounts
+                    every section — killing any in-flight drag activation (the
+                    section's sortable unregisters on unmount) and discarding
+                    animations. String keys keep section elements alive and move
+                    them on reorder. */}
+                <For each={props.groups().map((group) => group.id)}>
+                  {(id, index) => <HomeSessionGroupSlot {...props} id={id} index={index} />}
+                </For>
+              </div>
+            </DragDropProvider>
           </Show>
         </Suspense>
       </div>
@@ -506,10 +525,65 @@ function HomeSessionSearchResultRow(
   )
 }
 
+function HomeSessionGroupSlot(
+  props: HomeSessionsViewProps & {
+    id: HomeSessionGroup["id"]
+    index: () => number
+  },
+) {
+  const initial = props.groups().find((group) => group.id === props.id)
+  if (!initial) return
+  const group = createMemo<HomeSessionGroup>(
+    (previous) => props.groups().find((item) => item.id === props.id) ?? previous,
+    initial,
+  )
+  // The header is the sortable element (not a wrapper around header + rows):
+  // sticky headers must stay direct children of the scroll column, or the
+  // sticky containing block re-scopes to the wrapper and the overlapping
+  // header fade breaks. closestCenter then keeps drops over a section's rows
+  // targeting that section — the 28px header bands alone would leave most of
+  // the column with no droppable under the pointer.
+  const sortable = useSortable({
+    get id() {
+      return props.id
+    },
+    get index() {
+      return props.index()
+    },
+    collisionDetector: closestCenter,
+  })
+  const collapsed = () => props.groupCollapsed(props.id)
+  return (
+    <>
+      <HomeSessionGroupHeader
+        title={
+          collapsed()
+            ? props.language.t("home.sessions.group.count", { title: group().title, count: group().sessions.length })
+            : group().title
+        }
+        titleOpacity={props.titleOpacity(props.id)}
+        onSetRef={(element) => {
+          props.onSetHeader(props.id, element)
+          sortable.ref(element)
+        }}
+        onSetHandle={sortable.handleRef}
+        elevated={props.index() === 0}
+        collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
+      />
+      <Show when={!collapsed()}>
+        <div class={`flex min-w-0 flex-col gap-px pt-4 ${props.index() === props.groups().length - 1 ? "" : "mb-6"}`}>
+          <For each={group().sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
+        </div>
+      </Show>
+    </>
+  )
+}
+
 function HomeSessionGroupHeader(props: {
   title: string
   titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
+  onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
   collapse?: { collapsed: boolean; onToggle: () => void }
 }) {
@@ -522,7 +596,7 @@ function HomeSessionGroupHeader(props: {
       `}
       classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
     >
-      <div class="flex min-w-0 items-center gap-1">
+      <div ref={props.onSetHandle} class="pointer-events-auto flex min-w-0 items-center gap-1">
         <Show when={props.collapse}>
           {(collapse) => (
             <button
