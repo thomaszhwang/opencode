@@ -36,13 +36,8 @@ export function DialogSessionTags(props: { session: Session }) {
           tags={current()}
           suggestions={tags.all()}
           placeholder={language.t("dialog.session.tags.placeholder")}
-          onAdd={(tag) => void tags.setTags(props.session, [...current(), tag])}
-          onRemove={(tag) =>
-            void tags.setTags(
-              props.session,
-              current().filter((item) => item !== tag),
-            )
-          }
+          onAdd={(tag) => void tags.setTags(props.session, (existing) => [...existing, tag])}
+          onRemove={(tag) => void tags.setTags(props.session, (existing) => existing.filter((item) => item !== tag))}
         />
       </DialogBody>
       <DialogFooter>
