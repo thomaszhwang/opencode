@@ -15,6 +15,7 @@ import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { useLanguage } from "@/context/language"
 import { ServerConnection } from "@/context/server"
 import { SessionTabAvatarView } from "@/pages/layout/session-tab-avatar"
+import { HomeInitiativesIndex } from "./home-initiatives-index"
 import { sessionTitle } from "@/utils/session-title"
 import { shouldOpenSessionInBackground } from "../home-session-open"
 import { homeSessionNotePinned } from "./home-session-note"
@@ -106,9 +107,10 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
     >
       <div class="sticky top-0 z-30 shrink-0 bg-v2-background-bg-base pb-3 pt-6 lg:pt-12" onWheel={props.onWheel}>
         <HomeSessionSearch {...props} />
+        <HomeInitiativesIndex server={props.server} />
         <Suspense>
           <Show when={props.groups().length > 0 && props.canCreateSession()}>
-            <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex lg:top-[108px]">
+            <div class="pointer-events-none absolute right-0 top-[116px] z-20 flex lg:top-[140px]">
               <ButtonV2
                 data-action="home-new-session"
                 variant="ghost-muted"
@@ -123,14 +125,14 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
           </Show>
         </Suspense>
       </div>
-      <div class="pointer-events-none sticky top-[84px] z-40 h-0 -mr-3 lg:top-[108px]">
+      <div class="pointer-events-none sticky top-[116px] z-40 h-0 -mr-3 lg:top-[140px]">
         <div
           ref={props.onSetThumbTrack}
           data-component="home-session-scroll-track"
-          class="relative ml-auto h-[calc(100cqh-84px)] w-3 lg:h-[calc(100cqh-108px)]"
+          class="relative ml-auto h-[calc(100cqh-116px)] w-3 lg:h-[calc(100cqh-140px)]"
         />
       </div>
-      <div class="-mr-3 min-h-[calc(100cqh-72px)] lg:min-h-[calc(100cqh-96px)]">
+      <div class="-mr-3 min-h-[calc(100cqh-104px)] lg:min-h-[calc(100cqh-128px)]">
         <Suspense
           fallback={
             <div class="pt-3">
@@ -546,8 +548,8 @@ function HomeSessionGroupHeader(props: {
     <div
       ref={props.onSetRef}
       class={`
-        pointer-events-none sticky top-[84px] flex h-7 min-w-0 items-center justify-between
-        bg-v2-background-bg-base pl-3 lg:top-[108px]
+        pointer-events-none sticky top-[116px] flex h-7 min-w-0 items-center justify-between
+        bg-v2-background-bg-base pl-3 lg:top-[140px]
       `}
       classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
     >

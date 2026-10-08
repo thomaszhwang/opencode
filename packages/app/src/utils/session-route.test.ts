@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { ServerConnection } from "@/context/server"
-import { legacySessionHref, legacySessionServer, requireServerKey, rootSession, sessionHref } from "./session-route"
+import {
+  initiativeHref,
+  legacySessionHref,
+  legacySessionServer,
+  requireServerKey,
+  rootSession,
+  sessionHref,
+} from "./session-route"
 
 describe("session routes", () => {
   test("uses the unique persisted server for a legacy session route", () => {
@@ -31,6 +38,14 @@ describe("session routes", () => {
     const href = sessionHref(server, "session-1")
 
     expect(href).toBe("/server/aHR0cHM6Ly9leGFtcGxlLmNvbTo0MDk2/session/session-1")
+    expect(requireServerKey(href.split("/")[2])).toBe(server)
+  })
+
+  test("builds a server-keyed initiative route", () => {
+    const server = ServerConnection.Key.make("https://example.com:4096")
+    const href = initiativeHref(server, "ini-1")
+
+    expect(href).toBe("/server/aHR0cHM6Ly9leGFtcGxlLmNvbTo0MDk2/initiative/ini-1")
     expect(requireServerKey(href.split("/")[2])).toBe(server)
   })
 
