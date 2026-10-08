@@ -566,9 +566,6 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
     const present = new Set(tags().map((tag) => tag.toLowerCase()))
     return HOME_SESSION_STATUS_TAGS.map((status) => ({ ...status, active: present.has(status.tag) }))
   })
-  const pillTags = createMemo(() =>
-    tags().filter((tag) => !HOME_SESSION_STATUS_TAGS.some((status) => status.tag === tag.toLowerCase())),
-  )
   const notePinned = createMemo(() => homeSessionNotePinned(props.record.session))
 
   return (
@@ -581,7 +578,7 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
         data-component="home-session-row"
         class={`
           flex h-10 min-w-0 w-full flex-1 shrink-0 cursor-default items-center gap-2 rounded-[6px] border-0
-          bg-transparent py-3 pl-3 pr-10 text-left text-v2-text-text-muted [font-weight:530]
+          bg-transparent py-3 pl-3 pr-[70px] text-left text-v2-text-text-muted [font-weight:530]
           transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out
           hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
         `}
@@ -650,33 +647,16 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
         <Show when={showProjectName()}>
           <HomeSessionProjectName name={props.record.projectName} />
         </Show>
-        <Show when={pillTags().length > 0}>
-          <span class="flex min-w-0 shrink-0 items-center gap-1">
-            <For each={pillTags().slice(0, 3)}>
-              {(tag) => (
-                <span
-                  class={`
-                    rounded-[4px] bg-v2-background-bg-layer-02 px-1.5 py-0.5
-                    text-[11px] leading-3 text-v2-text-text-muted [font-weight:440]
-                  `}
-                >
-                  {tag}
-                </span>
-              )}
-            </For>
-            <Show when={pillTags().length > 3}>
-              <span class="text-[11px] leading-3 text-v2-text-text-faint [font-weight:440]">
-                +{pillTags().length - 3}
-              </span>
-            </Show>
-          </span>
-        </Show>
       </button>
-      <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+      <div class="pointer-events-none absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
         <span
           class="flex shrink-0 items-center"
           classList={{
-            "hover-reveal group-hover/session:opacity-100 focus-within:opacity-100": !notePinned(),
+            // hover-reveal forces opacity 1 under @media (hover: none), so touch
+            // devices must also restore pointer-events or the visible button is inert.
+            "hover-reveal pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto":
+              !notePinned(),
+            "pointer-events-auto": notePinned(),
           }}
         >
           <TooltipV2
@@ -698,7 +678,7 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
             />
           </TooltipV2>
         </span>
-        <span class="hover-reveal flex shrink-0 items-center group-hover/session:opacity-100 focus-within:opacity-100">
+        <span class="hover-reveal pointer-events-none flex shrink-0 items-center group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto">
           <TooltipV2
             class="flex shrink-0 items-center"
             placement="bottom"
