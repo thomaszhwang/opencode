@@ -263,6 +263,7 @@ export type SessionsListOutput = {
         readonly patch: string
       }>
     }
+    readonly metadata?: { readonly [x: string]: JsonValue }
   }>
   readonly cursor: { readonly previous?: string | null; readonly next?: string | null }
 }
@@ -326,6 +327,7 @@ export type SessionsCreateOutput = {
         readonly patch: string
       }>
     }
+    readonly metadata?: { readonly [x: string]: JsonValue }
   }
 }["data"]
 
@@ -365,6 +367,7 @@ export type SessionsGetOutput = {
         readonly patch: string
       }>
     }
+    readonly metadata?: { readonly [x: string]: JsonValue }
   }
 }["data"]
 
