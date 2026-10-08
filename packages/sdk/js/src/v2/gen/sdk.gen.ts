@@ -88,6 +88,12 @@ import type {
   GlobalHealthResponses,
   GlobalUpgradeErrors,
   GlobalUpgradeResponses,
+  InitiativeCreateErrors,
+  InitiativeCreateResponses,
+  InitiativeListErrors,
+  InitiativeListResponses,
+  InitiativeRemoveErrors,
+  InitiativeRemoveResponses,
   InstanceDisposeErrors,
   InstanceDisposeResponses,
   LabelCreateErrors,
@@ -1450,6 +1456,74 @@ export class Label extends HeyApiClient {
     const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "labelID" }] }])
     return (options?.client ?? this.client).delete<LabelRemoveResponses, LabelRemoveErrors, ThrowOnError>({
       url: "/label/{labelID}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Initiative extends HeyApiClient {
+  /**
+   * List initiatives
+   *
+   * Get all initiatives saved on this server.
+   */
+  public list<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<InitiativeListResponses, InitiativeListErrors, ThrowOnError>({
+      url: "/initiative",
+      ...options,
+    })
+  }
+
+  /**
+   * Create initiative
+   *
+   * Create an initiative grouping sessions under an `Initiative:<Name>` tag.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      name?: string
+      status?: "active" | "done" | "archived"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "name" },
+            { in: "body", key: "status" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<InitiativeCreateResponses, InitiativeCreateErrors, ThrowOnError>({
+      url: "/initiative",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete initiative
+   *
+   * Delete an initiative. Sessions keep their tags and docs stay on disk.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      initiativeID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "initiativeID" }] }])
+    return (options?.client ?? this.client).delete<InitiativeRemoveResponses, InitiativeRemoveErrors, ThrowOnError>({
+      url: "/initiative/{initiativeID}",
       ...options,
       ...params,
     })
@@ -7179,6 +7253,11 @@ export class OpencodeClient extends HeyApiClient {
   private _label?: Label
   get label(): Label {
     return (this._label ??= new Label({ client: this.client }))
+  }
+
+  private _initiative?: Initiative
+  get initiative(): Initiative {
+    return (this._initiative ??= new Initiative({ client: this.client }))
   }
 
   private _event?: Event

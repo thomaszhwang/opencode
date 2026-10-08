@@ -2032,6 +2032,12 @@ export type Config = {
   }
 }
 
+export type ConflictError = {
+  _tag: "ConflictError"
+  message: string
+  resource?: string
+}
+
 export type Model = {
   id: string
   providerID: string
@@ -2712,12 +2718,6 @@ export type PromptInput = {
   text: string
   files?: Array<PromptInputFileAttachment>
   agents?: Array<PromptAgentAttachment>
-}
-
-export type ConflictError = {
-  _tag: "ConflictError"
-  message: string
-  resource?: string
 }
 
 export type ServiceUnavailableError = {
@@ -7479,6 +7479,102 @@ export type LabelRemoveResponses = {
 }
 
 export type LabelRemoveResponse = LabelRemoveResponses[keyof LabelRemoveResponses]
+
+export type InitiativeListData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/initiative"
+}
+
+export type InitiativeListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type InitiativeListError = InitiativeListErrors[keyof InitiativeListErrors]
+
+export type InitiativeListResponses = {
+  /**
+   * All initiatives
+   */
+  200: Array<{
+    id: string
+    name: string
+    status: "active" | "done" | "archived"
+    timeCreated: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    timeUpdated: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  }>
+}
+
+export type InitiativeListResponse = InitiativeListResponses[keyof InitiativeListResponses]
+
+export type InitiativeCreateData = {
+  body?: {
+    name: string
+    status?: "active" | "done" | "archived"
+  }
+  path?: never
+  query?: never
+  url: "/initiative"
+}
+
+export type InitiativeCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * ConflictError
+   */
+  409: ConflictError
+}
+
+export type InitiativeCreateError = InitiativeCreateErrors[keyof InitiativeCreateErrors]
+
+export type InitiativeCreateResponses = {
+  /**
+   * Created initiative
+   */
+  200: {
+    id: string
+    name: string
+    status: "active" | "done" | "archived"
+    timeCreated: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+    timeUpdated: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  }
+}
+
+export type InitiativeCreateResponse = InitiativeCreateResponses[keyof InitiativeCreateResponses]
+
+export type InitiativeRemoveData = {
+  body?: never
+  path: {
+    initiativeID: string
+  }
+  query?: never
+  url: "/initiative/{initiativeID}"
+}
+
+export type InitiativeRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type InitiativeRemoveError = InitiativeRemoveErrors[keyof InitiativeRemoveErrors]
+
+export type InitiativeRemoveResponses = {
+  /**
+   * Initiative removed
+   */
+  200: boolean
+}
+
+export type InitiativeRemoveResponse = InitiativeRemoveResponses[keyof InitiativeRemoveResponses]
 
 export type EventSubscribeData = {
   body?: never
