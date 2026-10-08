@@ -33,6 +33,7 @@ import type { HomeController } from "./home-controller"
 import { preferLiveSession } from "./home-live-sessions"
 import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
+import { orderGroups, resolveGroupOrder } from "./home-sessions-order"
 
 const HOME_SESSION_LIMIT = 64
 // Status tags with a quick-filter toggle on the home search row, in the view's
@@ -100,6 +101,7 @@ export function createHomeSessionsController(home: HomeController) {
     createStore({
       collapsed: {} as Partial<Record<HomeSessionGroupId, boolean>>,
       statusFilters: {} as Partial<Record<string, boolean>>,
+      order: [] as HomeSessionGroupId[],
     }),
   )
   const [state] = createResource(
@@ -138,17 +140,20 @@ export function createHomeSessionsController(home: HomeController) {
     return allRecords().filter((record) => sessionMatchesLabel(tagsBySession().get(record.session.id) ?? [], filters))
   })
   const groups = createMemo(() =>
-    groupHomeSessions(records(), {
-      tags: (record) => tagsBySession().get(record.session.id) ?? [],
-      titles: {
-        initiatives: language.t("home.sessions.group.initiatives"),
-        userRequests: language.t("home.sessions.group.userRequests"),
-        harness: language.t("home.sessions.group.harness"),
-        recent: language.t("sidebar.project.recentSessions"),
-        abandoned: language.t("home.sessions.group.abandoned"),
-        done: language.t("home.sessions.group.done"),
-      },
-    }),
+    orderGroups(
+      groupHomeSessions(records(), {
+        tags: (record) => tagsBySession().get(record.session.id) ?? [],
+        titles: {
+          initiatives: language.t("home.sessions.group.initiatives"),
+          userRequests: language.t("home.sessions.group.userRequests"),
+          harness: language.t("home.sessions.group.harness"),
+          recent: language.t("sidebar.project.recentSessions"),
+          abandoned: language.t("home.sessions.group.abandoned"),
+          done: language.t("home.sessions.group.done"),
+        },
+      }),
+      state().order,
+    ),
   )
   const prefetched = new Set<string>()
 
@@ -231,6 +236,17 @@ export function createHomeSessionsController(home: HomeController) {
       collapsed: (id: HomeSessionGroupId) => resolveGroupCollapsed(state().collapsed, id),
       toggleCollapsed: (id: HomeSessionGroupId) =>
         setState("collapsed", id, !resolveGroupCollapsed(state().collapsed, id)),
+      move: (id: HomeSessionGroupId, toIndex: number) => {
+        const rendered = groups().map((group) => group.id)
+        const from = rendered.indexOf(id)
+        if (from === -1 || from === toIndex) return
+        const reordered = [...rendered]
+        reordered.splice(toIndex, 0, ...reordered.splice(from, 1))
+        // Sections with no sessions aren't rendered; keep them in their existing
+        // relative order behind the reordered rendered ids.
+        const hidden = resolveGroupOrder(state().order).filter((item) => !reordered.includes(item))
+        setState("order", [...reordered, ...hidden])
+      },
     },
     session: {
       showProjectName: () => !home.project.selected(),
