@@ -580,6 +580,7 @@ export const dict = {
   "toast.session.listFailed.title": "Failed to load sessions for {{project}}",
   "toast.session.tags.updateFailed.title": "Failed to update session tags",
   "toast.session.labels.updateFailed.title": "Failed to update labels",
+  "toast.session.note.updateFailed.title": "Failed to update session note",
   "toast.project.reloadFailed.title": "Failed to reload {{project}}",
 
   "toast.update.title": "Update available",
@@ -670,6 +671,8 @@ export const dict = {
   "home.sessions.tags.edit": "Edit tags",
   "dialog.session.tags.title": "Edit tags",
   "dialog.session.tags.placeholder": "Add a tag",
+  "dialog.session.note.title": "Edit note",
+  "dialog.session.note.placeholder": "Add a note",
   "dialog.session.label.title": "New label",
   "dialog.session.label.name": "Name",
   "dialog.session.label.name.placeholder": "e.g. Incidents",
