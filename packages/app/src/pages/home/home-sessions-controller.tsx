@@ -32,6 +32,7 @@ import { showToast } from "@/utils/toast"
 import { Binary } from "@opencode-ai/core/util/binary"
 import { archiveHomeSession } from "../home-session-archive"
 import type { HomeController } from "./home-controller"
+import { preferLiveSession } from "./home-live-sessions"
 import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
 
@@ -99,7 +100,7 @@ export function createHomeSessionsController(home: HomeController) {
       homeSessions().sessions(sessionLoad.data, sessionEventLoad.data),
       tags.labels().length > 0 ? Number.MAX_SAFE_INTEGER : HOME_SESSION_LIMIT,
       Date.now(),
-    ),
+    ).map((record) => preferLiveSession(record, tags.session(record.id))),
   )
   const allRecords = createMemo(() =>
     buildHomeSessionRecords({
