@@ -48,6 +48,8 @@ function isBackgroundOpen(event: MouseEvent) {
 export type HomeSessionsViewProps = {
   language: ReturnType<typeof useLanguage>
   groups: Accessor<HomeSessionGroup[]>
+  groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
+  onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
   showProjectName: Accessor<boolean>
   server: Accessor<ServerConnection.Key>
   canCreateSession: Accessor<boolean>
@@ -143,21 +145,35 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
           >
             <div ref={props.onSetContent} class="flex flex-col pt-3 pr-3 pb-16">
               <For each={props.groups()}>
-                {(group, index) => (
-                  <>
-                    <HomeSessionGroupHeader
-                      title={group.title}
-                      titleOpacity={props.titleOpacity(group.id)}
-                      onSetRef={(element) => props.onSetHeader(group.id, element)}
-                      elevated={index() === 0}
-                    />
-                    <div
-                      class={`flex min-w-0 flex-col gap-px pt-4 ${index() === props.groups().length - 1 ? "" : "mb-6"}`}
-                    >
-                      <For each={group.sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
-                    </div>
-                  </>
-                )}
+                {(group, index) => {
+                  const collapsed = () => props.groupCollapsed(group.id)
+                  return (
+                    <>
+                      <HomeSessionGroupHeader
+                        title={
+                          group.id === "done" && collapsed()
+                            ? props.language.t("home.sessions.group.done.count", { count: group.sessions.length })
+                            : group.title
+                        }
+                        titleOpacity={props.titleOpacity(group.id)}
+                        onSetRef={(element) => props.onSetHeader(group.id, element)}
+                        elevated={index() === 0}
+                        collapse={
+                          group.id === "done"
+                            ? { collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(group.id) }
+                            : undefined
+                        }
+                      />
+                      <Show when={!(group.id === "done" && collapsed())}>
+                        <div
+                          class={`flex min-w-0 flex-col gap-px pt-4 ${index() === props.groups().length - 1 ? "" : "mb-6"}`}
+                        >
+                          <For each={group.sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
+                        </div>
+                      </Show>
+                    </>
+                  )
+                }}
               </For>
             </div>
           </Show>
@@ -495,6 +511,7 @@ function HomeSessionGroupHeader(props: {
   titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
   elevated?: boolean
+  collapse?: { collapsed: boolean; onToggle: () => void }
 }) {
   return (
     <div
@@ -505,8 +522,37 @@ function HomeSessionGroupHeader(props: {
       `}
       classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
     >
-      <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
-        {props.title}
+      <div class="flex min-w-0 items-center gap-1">
+        <Show when={props.collapse}>
+          {(collapse) => (
+            <button
+              type="button"
+              data-action="home-session-group-collapse"
+              aria-expanded={!collapse().collapsed}
+              aria-label={props.title}
+              class={`
+                pointer-events-auto -ml-1.5 flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                collapse().onToggle()
+              }}
+            >
+              <IconV2
+                name="chevron-down"
+                size="small"
+                class="transition-transform duration-150 ease-in-out"
+                style={{ transform: `rotate(${collapse().collapsed ? -90 : 0}deg)` }}
+              />
+            </button>
+          )}
+        </Show>
+        <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
+          {props.title}
+        </div>
       </div>
     </div>
   )
