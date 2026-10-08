@@ -652,7 +652,9 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
         <span
           class="flex shrink-0 items-center"
           classList={{
-            "hover-reveal pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto":
+            // hover-reveal forces opacity 1 under @media (hover: none), so touch
+            // devices must also restore pointer-events or the visible button is inert.
+            "hover-reveal pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto":
               !notePinned(),
             "pointer-events-auto": notePinned(),
           }}
@@ -676,7 +678,7 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
             />
           </TooltipV2>
         </span>
-        <span class="hover-reveal pointer-events-none flex shrink-0 items-center group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+        <span class="hover-reveal pointer-events-none flex shrink-0 items-center group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto">
           <TooltipV2
             class="flex shrink-0 items-center"
             placement="bottom"
