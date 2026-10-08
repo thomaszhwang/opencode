@@ -18,9 +18,7 @@ import {
   sessionTagsFromMetadata,
   toggleSessionTag,
   useSessionTags,
-  type SessionLabel,
 } from "@/context/session-tags"
-import { DialogSessionLabel } from "@/components/dialog-session-label"
 import { DialogSessionNote } from "@/components/dialog-session-note"
 import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { sessionHasOpenTab, useTabs } from "@/context/tabs"
@@ -37,6 +35,10 @@ import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
 
 const HOME_SESSION_LIMIT = 64
+// Status tags with a quick-filter toggle on the home search row, in the view's
+// HOME_SESSION_STATUS_TAGS order — "done" has no toggle, it groups into its
+// own section instead.
+export const HOME_SESSION_FILTER_TAGS = ["important", "urgent"] as const
 export type HomeSessionRecord = {
   session: Session
   project: LocalProject
@@ -93,12 +95,25 @@ export function createHomeSessionsController(home: HomeController) {
     refetchOnMount: true,
     refetchOnReconnect: true,
   }))
-  // Once labels exist, retain the full session history so label matching and
-  // counts cover every session, not just the most recent HOME_SESSION_LIMIT.
+  const [_state, setState, _, ready] = persisted(
+    Persist.global("home.sessions", ["home.sessions.v1"]),
+    createStore({
+      collapsed: {} as Partial<Record<HomeSessionGroupId, boolean>>,
+      statusFilters: {} as Partial<Record<string, boolean>>,
+    }),
+  )
+  const [state] = createResource(
+    () => ready.promise ?? Promise.resolve(),
+    (promise) => promise.then(() => _state),
+    { initialValue: _state },
+  )
+  const statusFilterTags = createMemo(() => HOME_SESSION_FILTER_TAGS.filter((tag) => state().statusFilters[tag]))
+  // While a quick filter is active, retain the full session history so
+  // filtering covers every session, not just the most recent HOME_SESSION_LIMIT.
   const indexedSessions = createMemo(() =>
     retainHomeSessions(
       homeSessions().sessions(sessionLoad.data, sessionEventLoad.data),
-      tags.labels().length > 0 ? Number.MAX_SAFE_INTEGER : HOME_SESSION_LIMIT,
+      statusFilterTags().length > 0 ? Number.MAX_SAFE_INTEGER : HOME_SESSION_LIMIT,
       Date.now(),
     ).map((record) => preferLiveSession(record, tags.session(record.id))),
   )
@@ -117,24 +132,10 @@ export function createHomeSessionsController(home: HomeController) {
     for (const record of allRecords()) map.set(record.session.id, sessionTagsFromMetadata(record.session))
     return map
   })
-  const matchLabel = (sessionID: string, label: SessionLabel) =>
-    sessionMatchesLabel(tagsBySession().get(sessionID) ?? [], label.tags)
   const records = createMemo(() => {
-    const label = tags.active()
-    if (!label) return allRecords().slice(0, HOME_SESSION_LIMIT)
-    return allRecords().filter((record) => matchLabel(record.session.id, label))
-  })
-  const labelCounts = createMemo(() => {
-    const counts = new Map<string, number>()
-    const all = allRecords()
-    for (const label of tags.labels()) {
-      let count = 0
-      for (const record of all) {
-        if (matchLabel(record.session.id, label)) count++
-      }
-      counts.set(label.id, count)
-    }
-    return counts
+    const filters = statusFilterTags()
+    if (filters.length === 0) return allRecords().slice(0, HOME_SESSION_LIMIT)
+    return allRecords().filter((record) => sessionMatchesLabel(tagsBySession().get(record.session.id) ?? [], filters))
   })
   const groups = createMemo(() =>
     groupHomeSessions(records(), {
@@ -148,15 +149,6 @@ export function createHomeSessionsController(home: HomeController) {
         done: language.t("home.sessions.group.done"),
       },
     }),
-  )
-  const [_state, setState, _, ready] = persisted(
-    Persist.global("home.sessions", ["home.sessions.v1"]),
-    createStore({ collapsed: {} as Partial<Record<HomeSessionGroupId, boolean>> }),
-  )
-  const [state] = createResource(
-    () => ready.promise ?? Promise.resolve(),
-    (promise) => promise.then(() => _state),
-    { initialValue: _state },
   )
   const prefetched = new Set<string>()
 
@@ -309,19 +301,13 @@ export function createHomeSessionsController(home: HomeController) {
     },
     tags: {
       for: (sessionID: string) => tagsBySession().get(sessionID) ?? [],
-      labels: tags.labels,
-      counts: labelCounts,
-      active: tags.active,
-      select: tags.select,
-      remove: tags.removeLabel,
+      statusFilterTags,
+      toggleStatusFilter: (tag: string) => setState("statusFilters", tag, (active) => !active),
       edit: (session: Session) => {
         void dialog.show(() => <DialogSessionTags session={session} />)
       },
       toggle: (session: Session, tag: string) => {
         void tags.setTags(session, (current) => toggleSessionTag(current, tag))
-      },
-      create: () => {
-        void dialog.show(() => <DialogSessionLabel />)
       },
     },
     note: {

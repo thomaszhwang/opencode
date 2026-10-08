@@ -1,6 +1,7 @@
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { serverName } from "@/context/server"
+import { sessionMatchesLabel, sessionTagsFromMetadata } from "@/context/session-tags"
 import { displayName } from "@/pages/layout/helpers"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createMemo, onCleanup } from "solid-js"
@@ -8,7 +9,7 @@ import { createStore } from "solid-js/store"
 import type { HomeController } from "./home-controller"
 import { homeSessionSearchKey, type HomeSessionRecord, type HomeSessionsController } from "./home-sessions-controller"
 
-type HomeSessionSearchSource = Pick<HomeSessionsController, "data" | "session">
+type HomeSessionSearchSource = Pick<HomeSessionsController, "data" | "session" | "tags">
 
 export function createHomeSessionSearchController(home: HomeController, sessions: HomeSessionSearchSource) {
   const command = useCommand()
@@ -21,9 +22,14 @@ export function createHomeSessionSearchController(home: HomeController, sessions
   const results = createMemo(() => {
     const value = query().toLowerCase()
     if (!value) return []
+    const filters = sessions.tags.statusFilterTags()
     return sessions.data
       .searchRecords()
-      .filter((record) => `${record.session.title} ${record.projectName}`.toLowerCase().includes(value))
+      .filter(
+        (record) =>
+          (filters.length === 0 || sessionMatchesLabel(sessionTagsFromMetadata(record.session), filters)) &&
+          `${record.session.title} ${record.projectName}`.toLowerCase().includes(value),
+      )
   })
   const active = createMemo(() => {
     const records = results()
