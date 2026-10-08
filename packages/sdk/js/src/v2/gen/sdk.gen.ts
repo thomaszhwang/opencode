@@ -90,6 +90,10 @@ import type {
   GlobalUpgradeResponses,
   InitiativeCreateErrors,
   InitiativeCreateResponses,
+  InitiativeDocListErrors,
+  InitiativeDocListResponses,
+  InitiativeDocReadErrors,
+  InitiativeDocReadResponses,
   InitiativeListErrors,
   InitiativeListResponses,
   InitiativeRemoveErrors,
@@ -1462,6 +1466,57 @@ export class Label extends HeyApiClient {
   }
 }
 
+export class Doc extends HeyApiClient {
+  /**
+   * List initiative docs
+   *
+   * List the markdown documents in an initiative's on-disk docs folder.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters: {
+      initiativeID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "initiativeID" }] }])
+    return (options?.client ?? this.client).get<InitiativeDocListResponses, InitiativeDocListErrors, ThrowOnError>({
+      url: "/initiative/{initiativeID}/doc",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read initiative doc
+   *
+   * Read a markdown document from an initiative's on-disk docs folder.
+   */
+  public read<ThrowOnError extends boolean = false>(
+    parameters: {
+      initiativeID: string
+      name: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "initiativeID" },
+            { in: "path", key: "name" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<InitiativeDocReadResponses, InitiativeDocReadErrors, ThrowOnError>({
+      url: "/initiative/{initiativeID}/doc/{name}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Initiative extends HeyApiClient {
   /**
    * List initiatives
@@ -1527,6 +1582,11 @@ export class Initiative extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _doc?: Doc
+  get doc(): Doc {
+    return (this._doc ??= new Doc({ client: this.client }))
   }
 }
 
