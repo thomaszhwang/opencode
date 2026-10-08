@@ -90,6 +90,12 @@ import type {
   GlobalUpgradeResponses,
   InstanceDisposeErrors,
   InstanceDisposeResponses,
+  LabelCreateErrors,
+  LabelCreateResponses,
+  LabelListErrors,
+  LabelListResponses,
+  LabelRemoveErrors,
+  LabelRemoveResponses,
   LocationRef,
   LspStatusErrors,
   LspStatusResponses,
@@ -1379,6 +1385,74 @@ export class Global extends HeyApiClient {
   private _config?: Config
   get config(): Config {
     return (this._config ??= new Config({ client: this.client }))
+  }
+}
+
+export class Label extends HeyApiClient {
+  /**
+   * List labels
+   *
+   * Get all session labels saved on this server.
+   */
+  public list<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<LabelListResponses, LabelListErrors, ThrowOnError>({
+      url: "/label",
+      ...options,
+    })
+  }
+
+  /**
+   * Create label
+   *
+   * Create a named session label grouping a fixed set of tags.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      name?: string
+      tags?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "name" },
+            { in: "body", key: "tags" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LabelCreateResponses, LabelCreateErrors, ThrowOnError>({
+      url: "/label",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete label
+   *
+   * Delete a session label. Sessions keep their tags.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      labelID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "labelID" }] }])
+    return (options?.client ?? this.client).delete<LabelRemoveResponses, LabelRemoveErrors, ThrowOnError>({
+      url: "/label/{labelID}",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -7100,6 +7174,11 @@ export class OpencodeClient extends HeyApiClient {
   private _global?: Global
   get global(): Global {
     return (this._global ??= new Global({ client: this.client }))
+  }
+
+  private _label?: Label
+  get label(): Label {
+    return (this._label ??= new Label({ client: this.client }))
   }
 
   private _event?: Event

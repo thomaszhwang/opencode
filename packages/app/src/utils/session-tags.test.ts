@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { normalizeSessionTags, sessionMatchesLabel } from "./session-tags"
+import type { Session } from "@opencode-ai/sdk/v2/client"
+import { normalizeSessionTags, sessionMatchesLabel, sessionTagsFromMetadata } from "./session-tags"
+
+function sessionWithMetadata(metadata: unknown): Session {
+  return { metadata } as Session
+}
 
 describe("normalizeSessionTags", () => {
   test("trims and collapses whitespace", () => {
@@ -30,5 +35,25 @@ describe("sessionMatchesLabel", () => {
 
   test("matching is case-insensitive", () => {
     expect(sessionMatchesLabel(["Fleet"], ["fleet"])).toBe(true)
+  })
+})
+
+describe("sessionTagsFromMetadata", () => {
+  test("returns no tags for a missing session or metadata", () => {
+    expect(sessionTagsFromMetadata(undefined)).toEqual([])
+    expect(sessionTagsFromMetadata(sessionWithMetadata(undefined))).toEqual([])
+    expect(sessionTagsFromMetadata(sessionWithMetadata({}))).toEqual([])
+  })
+
+  test("reads and normalizes the tags key", () => {
+    expect(sessionTagsFromMetadata(sessionWithMetadata({ tags: ["  fleet  plans ", "incident"] }))).toEqual([
+      "fleet plans",
+      "incident",
+    ])
+  })
+
+  test("ignores non-array and non-string values", () => {
+    expect(sessionTagsFromMetadata(sessionWithMetadata({ tags: "fleet" }))).toEqual([])
+    expect(sessionTagsFromMetadata(sessionWithMetadata({ tags: ["fleet", 1, null] }))).toEqual(["fleet"])
   })
 })

@@ -578,6 +578,8 @@ export const dict = {
   "toast.session.export.failed.description": "An error occurred while exporting the session",
 
   "toast.session.listFailed.title": "Failed to load sessions for {{project}}",
+  "toast.session.tags.updateFailed.title": "Failed to update session tags",
+  "toast.session.labels.updateFailed.title": "Failed to update labels",
   "toast.project.reloadFailed.title": "Failed to reload {{project}}",
 
   "toast.update.title": "Update available",

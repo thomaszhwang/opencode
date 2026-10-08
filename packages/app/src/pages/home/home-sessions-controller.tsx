@@ -13,7 +13,12 @@ import {
 import type { LocalProject } from "@/context/layout"
 import { useLanguage } from "@/context/language"
 import { ServerConnection } from "@/context/server"
-import { useSessionTags } from "@/context/session-tags"
+import {
+  sessionMatchesLabel,
+  sessionTagsFromMetadata,
+  useSessionTags,
+  type SessionLabel,
+} from "@/context/session-tags"
 import { DialogSessionLabel } from "@/components/dialog-session-label"
 import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { sessionHasOpenTab, useTabs } from "@/context/tabs"
@@ -100,10 +105,19 @@ export function createHomeSessionsController(home: HomeController) {
       projectByID,
     }),
   )
+  // Tags live in session metadata (server-side), so read them off the record's
+  // session rather than a client-side store.
+  const tagsBySession = createMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const record of allRecords()) map.set(record.session.id, sessionTagsFromMetadata(record.session))
+    return map
+  })
+  const matchLabel = (sessionID: string, label: SessionLabel) =>
+    sessionMatchesLabel(tagsBySession().get(sessionID) ?? [], label.tags)
   const records = createMemo(() => {
     const label = tags.active()
     if (!label) return allRecords().slice(0, HOME_SESSION_LIMIT)
-    return allRecords().filter((record) => tags.match(record.session.id, label))
+    return allRecords().filter((record) => matchLabel(record.session.id, label))
   })
   const labelCounts = createMemo(() => {
     const counts = new Map<string, number>()
@@ -111,7 +125,7 @@ export function createHomeSessionsController(home: HomeController) {
     for (const label of tags.labels()) {
       let count = 0
       for (const record of all) {
-        if (tags.match(record.session.id, label)) count++
+        if (matchLabel(record.session.id, label)) count++
       }
       counts.set(label.id, count)
     }
@@ -120,7 +134,7 @@ export function createHomeSessionsController(home: HomeController) {
   const groups = createMemo(() =>
     groupHomeSessions(records(), {
       time: (record) => record.session.time.updated ?? record.session.time.created,
-      tags: (record) => tags.tags(record.session.id),
+      tags: (record) => tagsBySession().get(record.session.id) ?? [],
       titles: {
         today: language.t("home.sessions.group.today"),
         yesterday: language.t("home.sessions.group.yesterday"),
@@ -275,7 +289,7 @@ export function createHomeSessionsController(home: HomeController) {
         sessionHasOpenTab(tabs.store, home.selection.value().server, record.session),
     },
     tags: {
-      for: tags.tags,
+      for: (sessionID: string) => tagsBySession().get(sessionID) ?? [],
       labels: tags.labels,
       counts: labelCounts,
       active: tags.active,

@@ -1,16 +1,19 @@
 import { NodeHttpServer } from "@effect/platform-node"
 import { describe, expect } from "bun:test"
 import { Context, Effect, Layer, Option } from "effect"
-import { HttpBody, HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
+import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
+import { Database } from "@opencode-ai/core/database/database"
 import { Auth } from "../../src/auth"
 import { Config } from "../../src/config/config"
 import { Installation } from "../../src/installation"
 import { Label } from "../../src/label/label"
-import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
 import { ServerAuth } from "../../src/server/auth"
 import { RootHttpApi } from "../../src/server/routes/instance/httpapi/api"
-import { GlobalPaths } from "../../src/server/routes/instance/httpapi/groups/global"
+import { LabelPaths } from "../../src/server/routes/instance/httpapi/groups/label"
 import { controlHandlers } from "../../src/server/routes/instance/httpapi/handlers/control"
 import { controlPlaneHandlers } from "../../src/server/routes/instance/httpapi/handlers/control-plane"
 import { globalHandlers } from "../../src/server/routes/instance/httpapi/handlers/global"
@@ -19,6 +22,8 @@ import { authorizationLayer } from "../../src/server/routes/instance/httpapi/mid
 import { schemaErrorLayer } from "../../src/server/routes/instance/httpapi/middleware/schema-error"
 import { testEffect } from "../lib/effect"
 
+// Same root-API topology as httpapi-global.test.ts, but with the real Label
+// service backed by a real (per-test-process) database instead of a mock.
 const apiLayer = HttpRouter.serve(
   HttpApiBuilder.layer(RootHttpApi).pipe(
     Layer.provide([controlHandlers, controlPlaneHandlers, globalHandlers, labelHandlers]),
@@ -30,9 +35,9 @@ const apiLayer = HttpRouter.serve(
   { disableListenLog: true, disableLogger: true },
 ).pipe(
   Layer.provideMerge(NodeHttpServer.layerTest),
+  Layer.provide(AppNodeBuilder.build(LayerNode.group([Label.node, Database.node]))),
   Layer.provide(Layer.mock(Auth.Service)({})),
   Layer.provide(Layer.mock(Config.Service)({})),
-  Layer.provide(Layer.mock(Label.Service)({})),
   Layer.provide(Layer.mock(MoveSession.Service)({})),
   Layer.provide(
     Layer.mock(Installation.Service)({
@@ -45,49 +50,47 @@ const apiLayer = HttpRouter.serve(
 )
 const it = testEffect(apiLayer)
 
-describe("global HttpApi", () => {
-  it.live("upgrades to the requested version", () =>
+describe("label HttpApi", () => {
+  it.live("creates, lists, and removes labels", () =>
     Effect.gen(function* () {
-      const response = yield* HttpClientRequest.post(GlobalPaths.upgrade).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ target: "9.9.9" }),
+      const created = yield* HttpClientRequest.post(LabelPaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: "Needs review", tags: ["important", "urgent"] }),
         HttpClient.execute,
       )
+      expect(created.status).toBe(200)
+      const label = (yield* created.json) as Label.Info
+      expect(label.id).toBeString()
+      expect(label.name).toBe("Needs review")
+      expect(label.tags).toEqual(["important", "urgent"])
 
-      expect(response.status).toBe(200)
-      expect(yield* response.json).toEqual({ success: true, version: "9.9.9" })
+      const listed = yield* HttpClient.execute(HttpClientRequest.get(LabelPaths.list))
+      expect(listed.status).toBe(200)
+      expect(yield* listed.json).toEqual([label])
+
+      const removed = yield* HttpClient.execute(
+        HttpClientRequest.delete(LabelPaths.remove.replace(":labelID", label.id)),
+      )
+      expect(removed.status).toBe(200)
+      expect(yield* removed.json).toBe(true)
+
+      const empty = yield* HttpClient.execute(HttpClientRequest.get(LabelPaths.list))
+      expect(yield* empty.json).toEqual([])
     }),
   )
 
-  it.live("rejects invalid upgrade payloads", () =>
+  it.live("rejects invalid create payloads", () =>
     Effect.gen(function* () {
-      const response = yield* HttpClientRequest.post(GlobalPaths.upgrade).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ target: 1 }),
+      const noName = yield* HttpClientRequest.post(LabelPaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: "", tags: ["important"] }),
         HttpClient.execute,
       )
+      expect(noName.status).toBe(400)
 
-      expect(response.status).toBe(400)
-    }),
-  )
-
-  it.live("rejects invalid upgrade target versions", () =>
-    Effect.gen(function* () {
-      const response = yield* HttpClientRequest.post(GlobalPaths.upgrade).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ target: "latest" }),
+      const noTags = yield* HttpClientRequest.post(LabelPaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: "Needs review", tags: [] }),
         HttpClient.execute,
       )
-
-      expect(response.status).toBe(400)
-    }),
-  )
-
-  it.live("rejects unsupported upgrade content types", () =>
-    Effect.gen(function* () {
-      const response = yield* HttpClientRequest.post(GlobalPaths.upgrade).pipe(
-        HttpClientRequest.setBody(HttpBody.text('{"target":"1.0.0"}', "text/plain")),
-        HttpClient.execute,
-      )
-
-      expect(response.status).toBe(415)
+      expect(noTags.status).toBe(400)
     }),
   )
 })

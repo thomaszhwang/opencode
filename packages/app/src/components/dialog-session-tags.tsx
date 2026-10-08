@@ -4,7 +4,7 @@ import { Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from "@op
 import { DividerV2 } from "@opencode-ai/ui/v2/divider-v2"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 import { useLanguage } from "@/context/language"
-import { useSessionTags } from "@/context/session-tags"
+import { useSessionTags, sessionTagsFromMetadata } from "@/context/session-tags"
 import { sessionTitle } from "@/utils/session-title"
 import { SessionTagEditor } from "./session-tag-editor"
 
@@ -13,7 +13,13 @@ export function DialogSessionTags(props: { session: Session }) {
   const dialog = useDialog()
   const tags = useSessionTags()
 
-  const current = () => tags.tags(props.session.id)
+  // Prefer the live synced session once it is strictly newer than the passed
+  // one (it updates after writes via SSE); otherwise trust the passed session.
+  const current = () => {
+    const live = tags.session(props.session.id)
+    const base = live && live.time.updated > props.session.time.updated ? live : props.session
+    return sessionTagsFromMetadata(base)
+  }
 
   return (
     <Dialog fit>
@@ -30,13 +36,8 @@ export function DialogSessionTags(props: { session: Session }) {
           tags={current()}
           suggestions={tags.all()}
           placeholder={language.t("dialog.session.tags.placeholder")}
-          onAdd={(tag) => tags.setTags(props.session.id, [...current(), tag])}
-          onRemove={(tag) =>
-            tags.setTags(
-              props.session.id,
-              current().filter((item) => item !== tag),
-            )
-          }
+          onAdd={(tag) => void tags.setTags(props.session, (existing) => [...existing, tag])}
+          onRemove={(tag) => void tags.setTags(props.session, (existing) => existing.filter((item) => item !== tag))}
         />
       </DialogBody>
       <DialogFooter>

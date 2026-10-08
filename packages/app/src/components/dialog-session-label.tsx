@@ -18,9 +18,9 @@ export function DialogSessionLabel() {
 
   const valid = () => name().trim().length > 0 && selected().length > 0
 
-  const save = () => {
+  const save = async () => {
     if (!valid()) return
-    const label = tags.createLabel(name(), selected())
+    const label = await tags.createLabel(name(), selected())
     if (!label) return
     tags.select(label.id)
     dialog.close()
@@ -32,7 +32,7 @@ export function DialogSessionLabel() {
         class="contents"
         onSubmit={(event) => {
           event.preventDefault()
-          save()
+          void save()
         }}
       >
         <DialogHeader>

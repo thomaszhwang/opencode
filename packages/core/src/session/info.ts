@@ -26,6 +26,7 @@ export function fromRow(row: typeof SessionTable.$inferSelect): SessionSchema.In
         }
       : undefined,
     cost: row.cost,
+    metadata: row.metadata ?? undefined,
     tokens: {
       input: row.tokens_input,
       output: row.tokens_output,
