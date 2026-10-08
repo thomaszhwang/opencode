@@ -14,6 +14,7 @@ import { EventApi } from "./groups/event"
 import { ExperimentalApi } from "./groups/experimental"
 import { FileApi } from "./groups/file"
 import { InstanceApi } from "./groups/instance"
+import { InitiativeApi } from "./groups/initiative"
 import { LabelApi } from "./groups/label"
 import { McpApi } from "./groups/mcp"
 import { PermissionApi } from "./groups/permission"
@@ -57,6 +58,7 @@ export const RootHttpApi = HttpApi.make("opencode-root")
   .addHttpApi(ControlPlaneApi)
   .addHttpApi(GlobalApi)
   .addHttpApi(LabelApi)
+  .addHttpApi(InitiativeApi)
   .middleware(SchemaErrorMiddleware)
   .middleware(Authorization)
 

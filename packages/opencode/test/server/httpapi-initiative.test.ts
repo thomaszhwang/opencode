@@ -14,7 +14,7 @@ import { Initiative } from "../../src/initiative/initiative"
 import { Label } from "../../src/label/label"
 import { ServerAuth } from "../../src/server/auth"
 import { RootHttpApi } from "../../src/server/routes/instance/httpapi/api"
-import { LabelPaths } from "../../src/server/routes/instance/httpapi/groups/label"
+import { InitiativePaths } from "../../src/server/routes/instance/httpapi/groups/initiative"
 import { controlHandlers } from "../../src/server/routes/instance/httpapi/handlers/control"
 import { controlPlaneHandlers } from "../../src/server/routes/instance/httpapi/handlers/control-plane"
 import { globalHandlers } from "../../src/server/routes/instance/httpapi/handlers/global"
@@ -24,7 +24,7 @@ import { authorizationLayer } from "../../src/server/routes/instance/httpapi/mid
 import { schemaErrorLayer } from "../../src/server/routes/instance/httpapi/middleware/schema-error"
 import { testEffect } from "../lib/effect"
 
-// Same root-API topology as httpapi-global.test.ts, but with the real Label
+// Same root-API topology as httpapi-label.test.ts, with the real Initiative
 // service backed by a real (per-test-process) database instead of a mock.
 const apiLayer = HttpRouter.serve(
   HttpApiBuilder.layer(RootHttpApi).pipe(
@@ -37,10 +37,10 @@ const apiLayer = HttpRouter.serve(
   { disableListenLog: true, disableLogger: true },
 ).pipe(
   Layer.provideMerge(NodeHttpServer.layerTest),
-  Layer.provide(AppNodeBuilder.build(LayerNode.group([Label.node, Database.node]))),
+  Layer.provide(AppNodeBuilder.build(LayerNode.group([Initiative.node, Database.node]))),
   Layer.provide(Layer.mock(Auth.Service)({})),
-  Layer.provide(Layer.mock(Initiative.Service)({})),
   Layer.provide(Layer.mock(Config.Service)({})),
+  Layer.provide(Layer.mock(Label.Service)({})),
   Layer.provide(Layer.mock(MoveSession.Service)({})),
   Layer.provide(
     Layer.mock(Installation.Service)({
@@ -53,47 +53,89 @@ const apiLayer = HttpRouter.serve(
 )
 const it = testEffect(apiLayer)
 
-describe("label HttpApi", () => {
-  it.live("creates, lists, and removes labels", () =>
+// All tests in this file share one apiLayer and therefore one in-memory
+// database, so names must stay unique across tests to avoid 409s.
+let suffix = 0
+function uniqueName(base: string) {
+  suffix += 1
+  return `${base} ${suffix}`
+}
+
+describe("initiative HttpApi", () => {
+  it.live("creates with default status, lists, and removes initiatives", () =>
     Effect.gen(function* () {
-      const created = yield* HttpClientRequest.post(LabelPaths.create).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ name: "Needs review", tags: ["important", "urgent"] }),
+      const name = uniqueName("PlanetScale")
+      const created = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name }),
         HttpClient.execute,
       )
       expect(created.status).toBe(200)
-      const label = (yield* created.json) as Label.Info
-      expect(label.id).toBeString()
-      expect(label.name).toBe("Needs review")
-      expect(label.tags).toEqual(["important", "urgent"])
+      const initiative = (yield* created.json) as Initiative.Info
+      expect(initiative.id).toBeString()
+      expect(initiative.id.startsWith("ini")).toBe(true)
+      expect(initiative.name).toBe(name)
+      expect(initiative.status).toBe("active")
+      expect(initiative.timeCreated).toBeNumber()
+      expect(initiative.timeUpdated).toBeNumber()
 
-      const listed = yield* HttpClient.execute(HttpClientRequest.get(LabelPaths.list))
+      const listed = yield* HttpClient.execute(HttpClientRequest.get(InitiativePaths.list))
       expect(listed.status).toBe(200)
-      expect(yield* listed.json).toEqual([label])
+      expect(yield* listed.json).toEqual([initiative])
 
       const removed = yield* HttpClient.execute(
-        HttpClientRequest.delete(LabelPaths.remove.replace(":labelID", label.id)),
+        HttpClientRequest.delete(InitiativePaths.remove.replace(":initiativeID", initiative.id)),
       )
       expect(removed.status).toBe(200)
       expect(yield* removed.json).toBe(true)
 
-      const empty = yield* HttpClient.execute(HttpClientRequest.get(LabelPaths.list))
+      const empty = yield* HttpClient.execute(HttpClientRequest.get(InitiativePaths.list))
       expect(yield* empty.json).toEqual([])
+    }),
+  )
+
+  it.live("creates with an explicit status", () =>
+    Effect.gen(function* () {
+      const created = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: uniqueName("Done initiative"), status: "done" }),
+        HttpClient.execute,
+      )
+      expect(created.status).toBe(200)
+      expect(((yield* created.json) as Initiative.Info).status).toBe("done")
+    }),
+  )
+
+  it.live("rejects duplicate names case-insensitively", () =>
+    Effect.gen(function* () {
+      const name = uniqueName("PlanetScale")
+      const first = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name }),
+        HttpClient.execute,
+      )
+      expect(first.status).toBe(200)
+
+      const duplicate = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: name.toLowerCase() }),
+        HttpClient.execute,
+      )
+      expect(duplicate.status).toBe(409)
     }),
   )
 
   it.live("rejects invalid create payloads", () =>
     Effect.gen(function* () {
-      const noName = yield* HttpClientRequest.post(LabelPaths.create).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ name: "", tags: ["important"] }),
-        HttpClient.execute,
-      )
-      expect(noName.status).toBe(400)
+      for (const name of ["", "a:b", "a/b", "a\\b"]) {
+        const response = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+          HttpClientRequest.bodyJsonUnsafe({ name }),
+          HttpClient.execute,
+        )
+        expect(response.status).toBe(400)
+      }
 
-      const noTags = yield* HttpClientRequest.post(LabelPaths.create).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ name: "Needs review", tags: [] }),
+      const badStatus = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: uniqueName("PlanetScale"), status: "paused" }),
         HttpClient.execute,
       )
-      expect(noTags.status).toBe(400)
+      expect(badStatus.status).toBe(400)
     }),
   )
 })

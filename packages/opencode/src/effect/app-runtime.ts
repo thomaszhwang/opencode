@@ -21,6 +21,7 @@ import { Discovery } from "@/skill/discovery"
 import { Question } from "@/question"
 import { Permission } from "@/permission"
 import { Todo } from "@/session/todo"
+import { Initiative } from "@/initiative/initiative"
 import { Label } from "@/label/label"
 import { Session } from "@/session/session"
 import { SessionStatus } from "@/session/status"
@@ -78,6 +79,7 @@ export const AppLayer = AppNodeBuilderV1.build(
     Permission.node,
     Todo.node,
     Label.node,
+    Initiative.node,
     Session.node,
     SessionProjector.node,
     SessionStatus.node,
