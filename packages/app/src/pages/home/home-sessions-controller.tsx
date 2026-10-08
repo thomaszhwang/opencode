@@ -21,6 +21,7 @@ import {
   type SessionLabel,
 } from "@/context/session-tags"
 import { DialogSessionLabel } from "@/components/dialog-session-label"
+import { DialogSessionNote } from "@/components/dialog-session-note"
 import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
@@ -304,6 +305,11 @@ export function createHomeSessionsController(home: HomeController) {
       },
       create: () => {
         void dialog.show(() => <DialogSessionLabel />)
+      },
+    },
+    note: {
+      edit: (session: Session) => {
+        void dialog.show(() => <DialogSessionNote session={session} />)
       },
     },
   }

@@ -77,6 +77,10 @@ const icons = {
     viewBox: "0 0 24 24",
     body: `<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
   },
+  note: {
+    viewBox: "0 0 16 16",
+    body: `<path d="M4 1.5H12V14.5H4V1.5Z" stroke="currentColor" stroke-linejoin="round"/><path d="M6.5 5H9.5M6.5 8H9.5M6.5 11H8.5" stroke="currentColor" stroke-linecap="round"/>`,
+  },
   monitor: {
     viewBox: "0 0 16 16",
     body: `<path d="M4.05559 9.38889H0.500007C0.500007 9.38889 0.500017 8.59298 0.500017 7.61112V2.27778C0.500017 1.29594 0.500102 0.5 0.500102 0.5H13.3889C13.3889 0.5 13.3889 1.29594 13.3889 2.27778V7.61112C13.3889 8.59298 13.3889 9.38889 13.3889 9.38889H9.83336M4.05559 9.38889V11.6111H6.94448H9.83336V9.38889M4.05559 9.38889H9.83336" transform="translate(1.05556 1.94444)" stroke="currentColor"/>`,

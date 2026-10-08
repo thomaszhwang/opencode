@@ -672,6 +672,7 @@ export const dict = {
   "home.sessions.tags.status.done": "Done",
   "home.sessions.tags.status.important": "Important",
   "home.sessions.tags.status.urgent": "Urgent",
+  "home.sessions.note.edit": "Edit note",
   "dialog.session.tags.title": "Edit tags",
   "dialog.session.tags.placeholder": "Add a tag",
   "dialog.session.note.title": "Edit note",
