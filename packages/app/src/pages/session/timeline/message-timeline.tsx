@@ -62,8 +62,10 @@ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/
 import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { DialogSessionTags } from "@/components/dialog-session-tags"
+import { DialogSessionNote } from "@/components/dialog-session-note"
 import { useLanguage } from "@/context/language"
 import { sessionTagsFromMetadata } from "@/context/session-tags"
+import { hasNote } from "@/context/session-note"
 import { useSessionKey } from "@/pages/session/session-layout"
 import { useSessionArchive } from "@/pages/session/session-archive"
 import { useServerSDK } from "@/context/server-sdk"
@@ -301,6 +303,7 @@ export function MessageTimeline(props: {
   const titleValue = createMemo(() => info()?.title)
   const titleLabel = createMemo(() => sessionTitle(titleValue()))
   const tags = createMemo(() => sessionTagsFromMetadata(info()))
+  const noteExists = createMemo(() => hasNote(info()))
   const shareUrl = createMemo(() => info()?.share?.url)
   const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
   const parentID = createMemo(() => info()?.parentID)
@@ -1490,6 +1493,25 @@ export function MessageTimeline(props: {
                           </span>
                         )}
                       </For>
+                    </button>
+                  </Show>
+                  <Show when={!title.editing}>
+                    <button
+                      type="button"
+                      data-slot="session-title-note"
+                      class="flex shrink-0 items-center rounded-[6px] px-1 py-0.5 hover:bg-v2-overlay-simple-overlay-hover"
+                      classList={{
+                        "text-v2-icon-icon-base": noteExists(),
+                        "text-v2-icon-icon-muted": !noteExists(),
+                      }}
+                      onClick={() => {
+                        const session = info()
+                        if (!session) return
+                        void dialog.show(() => <DialogSessionNote session={session} />)
+                      }}
+                      aria-label={language.t("dialog.session.note.title")}
+                    >
+                      <IconV2 name="edit" size="small" />
                     </button>
                   </Show>
                 </div>
