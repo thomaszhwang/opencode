@@ -2,7 +2,7 @@ import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { Initiative } from "@/initiative/initiative"
 import { RootHttpApi } from "../api"
-import { ConflictError } from "../errors"
+import { ConflictError, notFound } from "../errors"
 
 export const initiativeHandlers = HttpApiBuilder.group(RootHttpApi, "initiative", (handlers) =>
   Effect.gen(function* () {
@@ -27,6 +27,25 @@ export const initiativeHandlers = HttpApiBuilder.group(RootHttpApi, "initiative"
       return true
     })
 
-    return handlers.handle("list", list).handle("create", create).handle("remove", remove)
+    const docList = Effect.fn("InitiativeHttpApi.docList")(function* (ctx: { params: { initiativeID: string } }) {
+      return yield* initiative.docList(ctx.params.initiativeID).pipe(
+        Effect.catchTag("Initiative.NotFoundError", (error) => Effect.fail(notFound(error.message))),
+      )
+    })
+
+    const docRead = Effect.fn("InitiativeHttpApi.docRead")(function* (ctx: {
+      params: { initiativeID: string; name: string }
+    }) {
+      return yield* initiative.docRead(ctx.params.initiativeID, ctx.params.name).pipe(
+        Effect.catchTag("Initiative.NotFoundError", (error) => Effect.fail(notFound(error.message))),
+      )
+    })
+
+    return handlers
+      .handle("list", list)
+      .handle("create", create)
+      .handle("remove", remove)
+      .handle("docList", docList)
+      .handle("docRead", docRead)
   }),
 )

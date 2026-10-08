@@ -3,10 +3,13 @@ import { describe, expect } from "bun:test"
 import { Context, Effect, Layer, Option } from "effect"
 import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+import fs from "fs/promises"
+import path from "path"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
 import { Database } from "@opencode-ai/core/database/database"
+import { Global } from "@opencode-ai/core/global"
 import { Auth } from "../../src/auth"
 import { Config } from "../../src/config/config"
 import { Installation } from "../../src/installation"
@@ -136,6 +139,76 @@ describe("initiative HttpApi", () => {
         HttpClient.execute,
       )
       expect(badStatus.status).toBe(400)
+    }),
+  )
+
+  it.live("creates the docs folder on create and serves docs from disk", () =>
+    Effect.gen(function* () {
+      const name = uniqueName("Docs initiative")
+      const created = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name }),
+        HttpClient.execute,
+      )
+      expect(created.status).toBe(200)
+      const initiative = (yield* created.json) as Initiative.Info
+
+      const dir = path.join(Global.Path.data, "initiative", name)
+      expect((yield* Effect.promise(() => fs.stat(dir))).isDirectory()).toBe(true)
+
+      const listPath = InitiativePaths.docList.replace(":initiativeID", initiative.id)
+      const empty = yield* HttpClient.execute(HttpClientRequest.get(listPath))
+      expect(yield* empty.json).toEqual([])
+
+      yield* Effect.promise(() => fs.writeFile(path.join(dir, "b.md"), "# B\n"))
+      yield* Effect.promise(() => fs.writeFile(path.join(dir, "a.md"), "# A\n"))
+      yield* Effect.promise(() => fs.writeFile(path.join(dir, "notes.txt"), "nope"))
+      yield* Effect.promise(() => fs.writeFile(path.join(dir, ".hidden"), "nope"))
+
+      const listed = yield* HttpClient.execute(HttpClientRequest.get(listPath))
+      expect(listed.status).toBe(200)
+      const docs = (yield* listed.json) as Initiative.DocInfo[]
+      expect(docs.map((doc) => doc.name)).toEqual(["a.md", "b.md"])
+      expect(docs[0].timeUpdated).toBeNumber()
+
+      const read = yield* HttpClient.execute(
+        HttpClientRequest.get(
+          InitiativePaths.docRead.replace(":initiativeID", initiative.id).replace(":name", "a.md"),
+        ),
+      )
+      expect(read.status).toBe(200)
+      expect(read.headers["content-type"]).toContain("text/markdown")
+      expect(yield* read.text).toBe("# A\n")
+    }),
+  )
+
+  it.live("rejects invalid doc names and missing docs", () =>
+    Effect.gen(function* () {
+      const created = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
+        HttpClientRequest.bodyJsonUnsafe({ name: uniqueName("Docs initiative") }),
+        HttpClient.execute,
+      )
+      const initiative = (yield* created.json) as Initiative.Info
+
+      const docPath = (doc: string) =>
+        InitiativePaths.docRead.replace(":initiativeID", initiative.id).replace(":name", doc)
+
+      for (const doc of ["notes.txt", "..%2Fsecret.md"]) {
+        const response = yield* HttpClient.execute(HttpClientRequest.get(docPath(doc)))
+        expect(response.status).toBe(400)
+      }
+
+      const missingDoc = yield* HttpClient.execute(HttpClientRequest.get(docPath("missing.md")))
+      expect(missingDoc.status).toBe(404)
+
+      const unknownList = yield* HttpClient.execute(
+        HttpClientRequest.get(InitiativePaths.docList.replace(":initiativeID", "ini_missing")),
+      )
+      expect(unknownList.status).toBe(404)
+
+      const unknownDoc = yield* HttpClient.execute(
+        HttpClientRequest.get(InitiativePaths.docRead.replace(":initiativeID", "ini_missing").replace(":name", "a.md")),
+      )
+      expect(unknownDoc.status).toBe(404)
     }),
   )
 })

@@ -2038,6 +2038,13 @@ export type ConflictError = {
   resource?: string
 }
 
+export type NotFoundError = {
+  name: "NotFoundError"
+  data: {
+    message: string
+  }
+}
+
 export type Model = {
   id: string
   providerID: string
@@ -2546,13 +2553,6 @@ export type ProviderAuthError1 = {
     field?: string
     message?: string
     kind?: string
-  }
-}
-
-export type NotFoundError = {
-  name: "NotFoundError"
-  data: {
-    message: string
   }
 }
 
@@ -7575,6 +7575,72 @@ export type InitiativeRemoveResponses = {
 }
 
 export type InitiativeRemoveResponse = InitiativeRemoveResponses[keyof InitiativeRemoveResponses]
+
+export type InitiativeDocListData = {
+  body?: never
+  path: {
+    initiativeID: string
+  }
+  query?: never
+  url: "/initiative/{initiativeID}/doc"
+}
+
+export type InitiativeDocListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type InitiativeDocListError = InitiativeDocListErrors[keyof InitiativeDocListErrors]
+
+export type InitiativeDocListResponses = {
+  /**
+   * Initiative docs
+   */
+  200: Array<{
+    name: string
+    timeUpdated: number | "NaN" | "Infinity" | "-Infinity" | "Infinity" | "-Infinity" | "NaN"
+  }>
+}
+
+export type InitiativeDocListResponse = InitiativeDocListResponses[keyof InitiativeDocListResponses]
+
+export type InitiativeDocReadData = {
+  body?: never
+  path: {
+    initiativeID: string
+    name: string
+  }
+  query?: never
+  url: "/initiative/{initiativeID}/doc/{name}"
+}
+
+export type InitiativeDocReadErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * NotFoundError
+   */
+  404: NotFoundError
+}
+
+export type InitiativeDocReadError = InitiativeDocReadErrors[keyof InitiativeDocReadErrors]
+
+export type InitiativeDocReadResponses = {
+  /**
+   * Raw initiative doc
+   */
+  200: string
+}
+
+export type InitiativeDocReadResponse = InitiativeDocReadResponses[keyof InitiativeDocReadResponses]
 
 export type EventSubscribeData = {
   body?: never

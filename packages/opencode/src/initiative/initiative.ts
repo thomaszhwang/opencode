@@ -1,8 +1,11 @@
 import { Database } from "@opencode-ai/core/database/database"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+import { FSUtil } from "@opencode-ai/core/fs-util"
+import { Global } from "@opencode-ai/core/global"
 import { InitiativeTable } from "@opencode-ai/core/initiative/sql"
 import { asc, eq } from "drizzle-orm"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, Layer, Option, Schema } from "effect"
+import path from "path"
 import { Identifier } from "@/id/id"
 
 export const Status = Schema.Literals(["active", "done", "archived"])
@@ -35,18 +38,47 @@ export class NameConflictError extends Schema.TaggedErrorClass<NameConflictError
   },
 ) {}
 
+export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("Initiative.NotFoundError", {
+  message: Schema.String,
+}) {}
+
+// A doc name is both a URL path segment and a file name inside the initiative
+// folder, so the charset must rule out path traversal (`/`, `..`) by
+// construction.
+export const DocName = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9 ._-]*\.md$/))
+
+export const DocInfo = Schema.Struct({
+  name: Schema.String,
+  timeUpdated: Schema.Number,
+})
+export type DocInfo = Schema.Schema.Type<typeof DocInfo>
+
 export interface Interface {
   readonly list: () => Effect.Effect<Info[]>
   readonly create: (input: CreateInput) => Effect.Effect<Info, NameConflictError>
   readonly remove: (id: string) => Effect.Effect<void>
+  readonly docList: (id: string) => Effect.Effect<DocInfo[], NotFoundError>
+  readonly docRead: (id: string, name: string) => Effect.Effect<string, NotFoundError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/Initiative") {}
+
+// Docs live in the server-global data dir (not a project dir) because
+// initiatives span projects; files on disk are the source of truth.
+const docsDir = (name: string) => path.join(Global.Path.data, "initiative", name)
 
 const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const { db } = yield* Database.Service
+    const fs = yield* FSUtil.Service
+
+    const requireById = Effect.fn("Initiative.requireById")(function* (id: string) {
+      const rows = yield* db.select().from(InitiativeTable).where(eq(InitiativeTable.id, id)).all().pipe(Effect.orDie)
+      const row = rows[0]
+      if (!row) return yield* new NotFoundError({ message: `Initiative not found: ${id}` })
+      return row
+    })
 
     const list = Effect.fn("Initiative.list")(function* () {
       const rows = yield* db
@@ -79,6 +111,7 @@ const layer = Layer.effect(
         time_updated: Date.now(),
       }
       yield* db.insert(InitiativeTable).values([row]).run().pipe(Effect.orDie)
+      yield* fs.ensureDir(docsDir(input.name)).pipe(Effect.orDie)
       const info: Info = {
         id: row.id,
         name: row.name,
@@ -93,10 +126,42 @@ const layer = Layer.effect(
       yield* db.delete(InitiativeTable).where(eq(InitiativeTable.id, id)).run().pipe(Effect.orDie)
     })
 
-    return Service.of({ list, create, remove })
+    const docList = Effect.fn("Initiative.docList")(function* (id: string) {
+      const initiative = yield* requireById(id)
+      const dir = docsDir(initiative.name)
+      const entries = yield* fs
+        .readDirectoryEntries(dir)
+        .pipe(Effect.catch(() => Effect.succeed([] as FSUtil.DirEntry[])))
+      return yield* Effect.all(
+        entries
+          .filter((entry) => entry.type === "file" && entry.name.endsWith(".md"))
+          .toSorted((a, b) => a.name.localeCompare(b.name))
+          .map((entry) =>
+            fs.stat(path.join(dir, entry.name)).pipe(
+              Effect.map(
+                (info): DocInfo => ({
+                  name: entry.name,
+                  timeUpdated: Option.getOrElse(info.mtime, () => new Date(0)).getTime(),
+                }),
+              ),
+              // A doc can vanish between readdir and stat under external edits.
+              Effect.catch(() => Effect.succeed({ name: entry.name, timeUpdated: 0 })),
+            ),
+          ),
+      )
+    })
+
+    const docRead = Effect.fn("Initiative.docRead")(function* (id: string, name: string) {
+      const initiative = yield* requireById(id)
+      const content = yield* fs.readFileStringSafe(path.join(docsDir(initiative.name), name)).pipe(Effect.orDie)
+      if (content === undefined) return yield* new NotFoundError({ message: `Doc not found: ${name}` })
+      return content
+    })
+
+    return Service.of({ list, create, remove, docList, docRead })
   }),
 )
 
-export const node = LayerNode.make({ service: Service, layer, deps: [Database.node] })
+export const node = LayerNode.make({ service: Service, layer, deps: [Database.node, FSUtil.node] })
 
 export * as Initiative from "./initiative"
