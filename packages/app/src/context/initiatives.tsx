@@ -2,7 +2,7 @@ import { createSimpleContext } from "@opencode-ai/ui/context"
 import { createMemo, createResource } from "solid-js"
 import { useQuery } from "@tanstack/solid-query"
 import { getFilename } from "@opencode-ai/core/util/path"
-import type { InitiativeListResponse, Session } from "@opencode-ai/sdk/v2/client"
+import type { InitiativeDocListResponse, InitiativeListResponse, Session } from "@opencode-ai/sdk/v2/client"
 import {
   loadHomeSessionIndex,
   retainHomeSessions,
@@ -19,6 +19,8 @@ import { isInitiativeMember } from "@/utils/session-tags"
 import { showToast } from "@/utils/toast"
 
 export type InitiativeInfo = InitiativeListResponse[number]
+
+export type InitiativeDoc = InitiativeDocListResponse[number]
 
 export type InitiativeSession = {
   session: Session
@@ -158,6 +160,24 @@ export const { use: useInitiatives, provider: InitiativesProvider } = createSimp
       await refetch()
     }
 
+    const listDocs = async (initiative: InitiativeInfo): Promise<InitiativeDoc[]> => {
+      const c = ctx()
+      if (!c) return []
+      return c.sdk.client.initiative.doc.list({ initiativeID: initiative.id }).then((result) => result.data ?? [])
+    }
+
+    const readDoc = async (initiative: InitiativeInfo, name: string) => {
+      const c = ctx()
+      if (!c) return
+      return c.sdk.client.initiative.doc.read({ initiativeID: initiative.id, name }).then((result) => result.data)
+    }
+
+    // The docs folder is Global.Path.data on the server, which the API does
+    // not expose; it resolves to $XDG_DATA_HOME/opencode or, with the variable
+    // unset (the fork's local server), ~/.local/share/opencode.
+    const docsFolder = (initiative: InitiativeInfo) =>
+      `${ctx()?.sync.data.path.home || "~"}/.local/share/opencode/initiative/${initiative.name}/`
+
     return {
       list: () => initiativeList(),
       // Gate on the index fetch too: the shared key can hold a sibling's empty
@@ -168,6 +188,9 @@ export const { use: useInitiatives, provider: InitiativesProvider } = createSimp
       memberSessions,
       create,
       remove,
+      listDocs,
+      readDoc,
+      docsFolder,
     }
   },
 })
