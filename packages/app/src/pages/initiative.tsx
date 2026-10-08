@@ -1,8 +1,9 @@
 import { A, useParams } from "@solidjs/router"
 import { DateTime } from "luxon"
-import { createMemo, For, Show } from "solid-js"
+import { createEffect, createMemo, createResource, createSignal, For, on, Show } from "solid-js"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
 import { Spinner } from "@opencode-ai/ui/spinner"
+import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { useInitiatives } from "@/context/initiatives"
 import { useLanguage } from "@/context/language"
 import { requireServerKey, sessionHref } from "@/utils/session-route"
@@ -19,6 +20,23 @@ export function InitiativeSpacePage() {
     if (!current) return []
     return initiatives.memberSessions(current)
   })
+
+  const [selectedDoc, setSelectedDoc] = createSignal<string>()
+  createEffect(on(() => params.id, () => setSelectedDoc(undefined)))
+  const [docs] = createResource(
+    () => initiative(),
+    (current) => initiatives.listDocs(current),
+    { initialValue: [] },
+  )
+  const [docContent] = createResource(
+    () => {
+      const current = initiative()
+      const name = selectedDoc()
+      if (!current || !name) return undefined
+      return { current, name }
+    },
+    (input) => initiatives.readDoc(input.current, input.name),
+  )
 
   return (
     <div
@@ -95,6 +113,73 @@ export function InitiativeSpacePage() {
                       )}
                     </For>
                   </div>
+                </Show>
+                <div class="pt-8 text-v2-text-text-muted [font-weight:440]">{language.t("initiative.space.docs")}</div>
+                <div class="break-all pt-1 text-[12px] leading-4 text-v2-text-text-faint [font-weight:440]">
+                  {initiatives.docsFolder(current)}
+                </div>
+                <Show
+                  when={!docs.loading}
+                  fallback={
+                    <div class="flex justify-center pt-8 text-v2-text-text-muted">
+                      <Spinner class="size-4" />
+                    </div>
+                  }
+                >
+                  <Show
+                    when={docs().length > 0}
+                    fallback={
+                      <div class="flex flex-col gap-2 px-3 pt-8 text-center">
+                        <div class="text-[13px] leading-[13px] tracking-[-0.04px] text-v2-text-text-base [font-weight:530]">
+                          {language.t("initiative.space.docs.empty")}
+                        </div>
+                        <p class="text-[13px] leading-5 tracking-[-0.04px] text-v2-text-text-muted [font-weight:440]">
+                          {language.t("initiative.space.docs.empty.description")}
+                        </p>
+                      </div>
+                    }
+                  >
+                    <div class="flex min-w-0 flex-col gap-px pt-2">
+                      <For each={docs()}>
+                        {(doc) => (
+                          <button
+                            type="button"
+                            data-component="initiative-doc-row"
+                            onClick={() => setSelectedDoc((name) => (name === doc.name ? undefined : doc.name))}
+                            class={`
+                              flex h-10 min-w-0 items-center gap-2 rounded-[6px] px-3 text-left
+                              transition-[background-color] duration-[120ms] ease-in-out
+                              hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
+                              ${selectedDoc() === doc.name ? "bg-v2-overlay-simple-overlay-hover" : ""}
+                            `}
+                          >
+                            <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-v2-text-text-base [font-weight:530]">
+                              {doc.name}
+                            </span>
+                            <span class="shrink-0 text-[12px] leading-4 text-v2-text-text-faint [font-weight:440]">
+                              {typeof doc.timeUpdated === "number" && doc.timeUpdated
+                                ? DateTime.fromMillis(doc.timeUpdated).setLocale(language.intl()).toRelative()
+                                : ""}
+                            </span>
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                    <Show when={selectedDoc()}>
+                      <div class="pt-4">
+                        <Show
+                          when={!docContent.loading}
+                          fallback={
+                            <div class="flex justify-center pt-4 text-v2-text-text-muted">
+                              <Spinner class="size-4" />
+                            </div>
+                          }
+                        >
+                          <Markdown text={docContent() ?? ""} />
+                        </Show>
+                      </div>
+                    </Show>
+                  </Show>
                 </Show>
               </div>
             )}
