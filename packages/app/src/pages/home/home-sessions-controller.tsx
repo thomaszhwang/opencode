@@ -135,13 +135,13 @@ export function createHomeSessionsController(home: HomeController) {
   })
   const groups = createMemo(() =>
     groupHomeSessions(records(), {
-      time: (record) => record.session.time.updated ?? record.session.time.created,
       tags: (record) => tagsBySession().get(record.session.id) ?? [],
       titles: {
-        today: language.t("home.sessions.group.today"),
-        yesterday: language.t("home.sessions.group.yesterday"),
-        older: language.t("home.sessions.group.older"),
+        initiatives: language.t("home.sessions.group.initiatives"),
+        userRequests: language.t("home.sessions.group.userRequests"),
+        harness: language.t("home.sessions.group.harness"),
         recent: language.t("sidebar.project.recentSessions"),
+        abandoned: language.t("home.sessions.group.abandoned"),
         done: language.t("home.sessions.group.done"),
       },
     }),
