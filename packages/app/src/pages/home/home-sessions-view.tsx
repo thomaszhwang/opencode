@@ -14,12 +14,12 @@ import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { useLanguage } from "@/context/language"
 import { ServerConnection } from "@/context/server"
-import type { SessionLabel } from "@/context/session-tags"
 import { SessionTabAvatarView } from "@/pages/layout/session-tab-avatar"
 import { sessionTitle } from "@/utils/session-title"
 import { shouldOpenSessionInBackground } from "../home-session-open"
 import { homeSessionNotePinned } from "./home-session-note"
 import {
+  HOME_SESSION_FILTER_TAGS,
   HomeSessionStatusController,
   homeSessionSearchKey,
   type HomeSessionGroup,
@@ -70,12 +70,8 @@ export type HomeSessionsViewProps = {
   titleOpacity: (id: HomeSessionGroup["id"]) => number
   isOpenTab: (record: HomeSessionRecord) => boolean
   sessionTags: (sessionID: string) => string[]
-  labels: Accessor<SessionLabel[]>
-  labelCounts: Accessor<Map<string, number>>
-  activeLabel: Accessor<SessionLabel | null>
-  onSelectLabel: (id: string | null) => void
-  onCreateLabel: () => void
-  onRemoveLabel: (id: string) => void
+  statusFilterTags: Accessor<string[]>
+  onToggleStatusFilter: (tag: string) => void
   onEditTags: (session: Session) => void
   onEditNote: (session: Session) => void
   onToggleTag: (session: Session, tag: string) => void
@@ -110,10 +106,9 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
     >
       <div class="sticky top-0 z-30 shrink-0 bg-v2-background-bg-base pb-3 pt-6 lg:pt-12" onWheel={props.onWheel}>
         <HomeSessionSearch {...props} />
-        <HomeSessionLabels {...props} />
         <Suspense>
           <Show when={props.groups().length > 0 && props.canCreateSession()}>
-            <div class="pointer-events-none absolute right-0 top-[116px] z-20 flex lg:top-[140px]">
+            <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex lg:top-[108px]">
               <ButtonV2
                 data-action="home-new-session"
                 variant="ghost-muted"
@@ -128,14 +123,14 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
           </Show>
         </Suspense>
       </div>
-      <div class="pointer-events-none sticky top-[116px] z-40 h-0 -mr-3 lg:top-[140px]">
+      <div class="pointer-events-none sticky top-[84px] z-40 h-0 -mr-3 lg:top-[108px]">
         <div
           ref={props.onSetThumbTrack}
           data-component="home-session-scroll-track"
-          class="relative ml-auto h-[calc(100cqh-116px)] w-3 lg:h-[calc(100cqh-140px)]"
+          class="relative ml-auto h-[calc(100cqh-84px)] w-3 lg:h-[calc(100cqh-108px)]"
         />
       </div>
-      <div class="-mr-3 min-h-[calc(100cqh-104px)] lg:min-h-[calc(100cqh-128px)]">
+      <div class="-mr-3 min-h-[calc(100cqh-72px)] lg:min-h-[calc(100cqh-96px)]">
         <Suspense
           fallback={
             <div class="pt-3">
@@ -199,84 +194,6 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
         </Suspense>
       </div>
     </section>
-  )
-}
-
-function HomeSessionLabels(props: HomeSessionsViewProps) {
-  return (
-    <div data-component="home-session-labels" class="flex items-center gap-1.5 overflow-x-auto pt-2">
-      <For each={props.labels()}>
-        {(label) => (
-          <HomeSessionLabelChip
-            label={label}
-            count={props.labelCounts().get(label.id) ?? 0}
-            active={props.activeLabel()?.id === label.id}
-            onSelect={() => props.onSelectLabel(props.activeLabel()?.id === label.id ? null : label.id)}
-            onRemove={() => props.onRemoveLabel(label.id)}
-          />
-        )}
-      </For>
-      <button
-        type="button"
-        data-component="home-session-label-new"
-        class={`
-          flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5
-          text-[12px] leading-4 text-v2-text-text-faint [font-weight:530]
-          transition-[background-color,color] duration-[120ms] ease-in-out
-          hover:bg-v2-background-bg-layer-02 hover:text-v2-text-text-muted
-          focus-visible:bg-v2-background-bg-layer-02 focus-visible:outline-none
-        `}
-        onClick={props.onCreateLabel}
-      >
-        <IconV2 name="plus" />
-        {props.language.t("home.sessions.labels.new")}
-      </button>
-    </div>
-  )
-}
-
-function HomeSessionLabelChip(props: {
-  label: SessionLabel
-  count: number
-  active: boolean
-  onSelect: () => void
-  onRemove: () => void
-}) {
-  return (
-    <span
-      data-component="home-session-label"
-      class={`
-        group/label flex h-6 shrink-0 items-center rounded-full pl-2.5 pr-1.5
-        text-[12px] leading-4 [font-weight:530]
-        transition-[background-color,color] duration-[120ms] ease-in-out
-      `}
-      classList={{
-        "bg-v2-background-bg-layer-04 text-v2-text-text-base": props.active,
-        "bg-v2-background-bg-layer-02/60 text-v2-text-text-muted hover:bg-v2-background-bg-layer-02 hover:text-v2-text-text-base":
-          !props.active,
-      }}
-    >
-      <button
-        type="button"
-        class="flex h-6 cursor-pointer items-center gap-1.5 focus-visible:outline-none"
-        onClick={props.onSelect}
-      >
-        {props.label.name}
-        <span class="text-v2-text-text-faint [font-weight:440]">{props.count}</span>
-      </button>
-      <button
-        type="button"
-        aria-label={`Remove label ${props.label.name}`}
-        class={`
-          flex shrink-0 cursor-pointer items-center text-v2-icon-icon-muted
-          opacity-0 transition-opacity duration-[120ms] ease-in-out
-          group-hover/label:opacity-100 hover:text-v2-icon-icon-base focus-visible:opacity-100
-        `}
-        onClick={props.onRemove}
-      >
-        <IconV2 name="xmark-small" />
-      </button>
-    </span>
   )
 }
 
@@ -465,6 +382,44 @@ function HomeSessionSearch(props: HomeSessionsViewProps) {
               }}
             />
           </Show>
+          <For
+            each={HOME_SESSION_STATUS_TAGS.filter((status) =>
+              (HOME_SESSION_FILTER_TAGS as readonly string[]).includes(status.tag),
+            )}
+          >
+            {(status) => {
+              const active = () => props.statusFilterTags().includes(status.tag)
+              return (
+                <TooltipV2
+                  class="flex shrink-0 items-center"
+                  placement="bottom"
+                  value={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                >
+                  <button
+                    type="button"
+                    data-action={`home-session-filter-${status.tag}`}
+                    aria-pressed={active()}
+                    aria-label={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                    class={`
+                      flex shrink-0 cursor-pointer items-center justify-center rounded-[4px] p-1
+                      transition-colors duration-[120ms] ease-in-out
+                      hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
+                    `}
+                    onClick={() => props.onToggleStatusFilter(status.tag)}
+                  >
+                    <IconV2
+                      name={status.icon}
+                      size="small"
+                      classList={{
+                        [status.activeClass]: active(),
+                        "text-v2-icon-icon-muted opacity-30": !active(),
+                      }}
+                    />
+                  </button>
+                </TooltipV2>
+              )
+            }}
+          </For>
         </label>
       </div>
     </div>
@@ -591,8 +546,8 @@ function HomeSessionGroupHeader(props: {
     <div
       ref={props.onSetRef}
       class={`
-        pointer-events-none sticky top-[116px] flex h-7 min-w-0 items-center justify-between
-        bg-v2-background-bg-base pl-3 lg:top-[140px]
+        pointer-events-none sticky top-[84px] flex h-7 min-w-0 items-center justify-between
+        bg-v2-background-bg-base pl-3 lg:top-[108px]
       `}
       classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
     >

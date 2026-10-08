@@ -579,7 +579,6 @@ export const dict = {
 
   "toast.session.listFailed.title": "Failed to load sessions for {{project}}",
   "toast.session.tags.updateFailed.title": "Failed to update session tags",
-  "toast.session.labels.updateFailed.title": "Failed to update labels",
   "toast.session.note.updateFailed.title": "Failed to update session note",
   "toast.project.reloadFailed.title": "Failed to reload {{project}}",
 
@@ -672,7 +671,6 @@ export const dict = {
   "home.sessions.group.userRequests": "User Requests",
   "home.sessions.group.harness": "Harness",
   "home.sessions.group.abandoned": "Abandoned",
-  "home.sessions.labels.new": "New label",
   "home.sessions.tags.edit": "Edit tags",
   "home.sessions.tags.status.done": "Done",
   "home.sessions.tags.status.important": "Important",
@@ -682,10 +680,6 @@ export const dict = {
   "dialog.session.tags.placeholder": "Add a tag",
   "dialog.session.note.title": "Edit note",
   "dialog.session.note.placeholder": "Add a note",
-  "dialog.session.label.title": "New label",
-  "dialog.session.label.name": "Name",
-  "dialog.session.label.name.placeholder": "e.g. Incidents",
-  "dialog.session.label.tags": "Tags",
   "home.providerTip": "Connect to 75+ providers to use other models, including Claude, GPT, Gemini, etc",
 
   "session.tab.session": "Session",

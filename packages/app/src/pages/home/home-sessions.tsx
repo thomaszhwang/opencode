@@ -28,12 +28,8 @@ export function HomeSessions(props: {
       titleOpacity={props.scroll.header.titleOpacity}
       isOpenTab={props.sessions.tab.isOpen}
       sessionTags={props.sessions.tags.for}
-      labels={props.sessions.tags.labels}
-      labelCounts={props.sessions.tags.counts}
-      activeLabel={props.sessions.tags.active}
-      onSelectLabel={props.sessions.tags.select}
-      onCreateLabel={props.sessions.tags.create}
-      onRemoveLabel={props.sessions.tags.remove}
+      statusFilterTags={props.sessions.tags.statusFilterTags}
+      onToggleStatusFilter={props.sessions.tags.toggleStatusFilter}
       onEditTags={props.sessions.tags.edit}
       onEditNote={props.sessions.note.edit}
       onToggleTag={props.sessions.tags.toggle}
