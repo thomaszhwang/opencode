@@ -567,6 +567,10 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
                     event.stopPropagation()
                     props.onToggleTag(props.record.session, status.tag)
                   }}
+                  onAuxClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return
                     event.preventDefault()
