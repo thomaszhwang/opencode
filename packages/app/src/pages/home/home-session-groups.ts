@@ -1,36 +1,38 @@
-import { DateTime } from "luxon"
+export type HomeSessionGroupId = "initiatives" | "userRequests" | "harness" | "recent" | "abandoned" | "done"
 
-export type HomeSessionGroupId = "today" | "yesterday" | "older" | "done"
-
-// Sessions tagged "done" (the well-known status tag, matched case-insensitively)
-// leave the time-based groups and sink into a dedicated group at the bottom.
 export function groupHomeSessions<T>(
   records: T[],
   input: {
-    time: (record: T) => number
     tags: (record: T) => string[]
-    titles: Record<HomeSessionGroupId | "recent", string>
+    titles: Record<HomeSessionGroupId, string>
   },
 ): { id: HomeSessionGroupId; title: string; sessions: T[] }[] {
-  const now = DateTime.local()
-  const yesterday = now.minus({ days: 1 })
-  const isDone = (record: T) => input.tags(record).some((tag) => tag.toLowerCase() === "done")
-  const doneSessions = records.filter(isDone)
-  const pending = records.filter((record) => !isDone(record))
-  const todaySessions = pending.filter((record) => DateTime.fromMillis(input.time(record)).hasSame(now, "day"))
-  const yesterdaySessions = pending.filter((record) =>
-    DateTime.fromMillis(input.time(record)).hasSame(yesterday, "day"),
-  )
-  const olderSessions = pending.filter((record) => {
-    const time = DateTime.fromMillis(input.time(record))
-    return !time.hasSame(now, "day") && !time.hasSame(yesterday, "day")
-  })
-  const olderTitle =
-    todaySessions.length === 0 && yesterdaySessions.length === 0 ? input.titles.recent : input.titles.older
+  const top = [
+    { id: "initiatives", tag: "initiative" },
+    { id: "userRequests", tag: "user-request" },
+    { id: "harness", tag: "harness" },
+  ] as const
+  const terminal = [
+    { id: "abandoned", tag: "abandoned" },
+    { id: "done", tag: "done" },
+  ] as const
+  const tags = (record: T) => input.tags(record).map((tag) => tag.toLowerCase())
+  const active = records.filter((record) => !terminal.some((section) => tags(record).includes(section.tag)))
   return [
-    { id: "today" as const, title: input.titles.today, sessions: todaySessions },
-    { id: "yesterday" as const, title: input.titles.yesterday, sessions: yesterdaySessions },
-    { id: "older" as const, title: olderTitle, sessions: olderSessions },
-    { id: "done" as const, title: input.titles.done, sessions: doneSessions },
+    ...top.map((section) => ({
+      id: section.id,
+      title: input.titles[section.id],
+      sessions: active.filter((record) => tags(record).includes(section.tag)),
+    })),
+    {
+      id: "recent" as const,
+      title: input.titles.recent,
+      sessions: active.filter((record) => !top.some((section) => tags(record).includes(section.tag))),
+    },
+    ...terminal.map((section) => ({
+      id: section.id,
+      title: input.titles[section.id],
+      sessions: records.filter((record) => tags(record).includes(section.tag)),
+    })),
   ].filter((group) => group.sessions.length > 0)
 }

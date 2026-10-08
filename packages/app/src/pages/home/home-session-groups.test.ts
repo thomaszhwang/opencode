@@ -1,90 +1,129 @@
 import { describe, expect, test } from "bun:test"
-import { DateTime } from "luxon"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
 
-const titles: Record<HomeSessionGroupId | "recent", string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  older: "Older",
+const titles: Record<HomeSessionGroupId, string> = {
+  initiatives: "Initiatives",
+  userRequests: "User Requests",
+  harness: "Harness",
   recent: "Recent sessions",
+  abandoned: "Abandoned",
   done: "Done",
 }
 
-type Fixture = { id: string; at: number; tags: string[] }
+type Fixture = { id: string; tags: string[] }
 
 function group(records: Fixture[]) {
   return groupHomeSessions(records, {
-    time: (record) => record.at,
     tags: (record) => record.tags,
     titles,
   })
 }
 
-function at(daysAgo: number) {
-  return DateTime.local().minus({ days: daysAgo }).toMillis()
+function ids(groups: ReturnType<typeof group>, id: HomeSessionGroupId) {
+  return groups.find((group) => group.id === id)?.sessions.map((session) => session.id)
 }
 
 describe("groupHomeSessions", () => {
-  test("partitions done-tagged sessions out of the time groups", () => {
-    const done = { id: "done", at: at(0), tags: ["done"] }
-    const pending = { id: "pending", at: at(0), tags: [] }
-    const groups = group([done, pending])
-    expect(groups.find((group) => group.id === "today")?.sessions).toEqual([pending])
-    expect(groups.find((group) => group.id === "done")?.sessions).toEqual([done])
-  })
-
-  test("matches the done tag case-insensitively", () => {
+  test("routes section tags into their sections in fixed order", () => {
     const groups = group([
-      { id: "a", at: at(0), tags: ["Done"] },
-      { id: "b", at: at(0), tags: ["DONE"] },
-      { id: "c", at: at(0), tags: ["done"] },
+      { id: "done", tags: ["done"] },
+      { id: "harness", tags: ["Harness"] },
+      { id: "recent", tags: [] },
+      { id: "initiative", tags: ["Initiative"] },
+      { id: "abandoned", tags: ["Abandoned"] },
+      { id: "user-request", tags: ["User-Request"] },
     ])
-    expect(groups).toHaveLength(1)
-    expect(groups[0]?.sessions.map((session) => session.id)).toEqual(["a", "b", "c"])
+    expect(groups.map((group) => group.id)).toEqual([
+      "initiatives",
+      "userRequests",
+      "harness",
+      "recent",
+      "abandoned",
+      "done",
+    ])
+    expect(groups.map((group) => group.title)).toEqual([
+      "Initiatives",
+      "User Requests",
+      "Harness",
+      "Recent sessions",
+      "Abandoned",
+      "Done",
+    ])
+    expect(ids(groups, "initiatives")).toEqual(["initiative"])
+    expect(ids(groups, "userRequests")).toEqual(["user-request"])
+    expect(ids(groups, "harness")).toEqual(["harness"])
+    expect(ids(groups, "recent")).toEqual(["recent"])
+    expect(ids(groups, "abandoned")).toEqual(["abandoned"])
+    expect(ids(groups, "done")).toEqual(["done"])
   })
 
-  test("keeps sessions with other tags in their time group", () => {
-    const record = { id: "a", at: at(0), tags: ["research"] }
-    const groups = group([record])
-    expect(groups.find((group) => group.id === "today")?.sessions).toEqual([record])
-    expect(groups.find((group) => group.id === "done")).toBeUndefined()
-  })
-
-  test("done sessions from any day join the done group", () => {
+  test("matches section tags case-insensitively but not by substring", () => {
     const groups = group([
-      { id: "today", at: at(0), tags: ["done"] },
-      { id: "yesterday", at: at(1), tags: ["done"] },
-      { id: "older", at: at(3), tags: ["done"] },
+      { id: "a", tags: ["INITIATIVE"] },
+      { id: "b", tags: ["user-Request"] },
+      { id: "c", tags: ["hArNeSs"] },
+      { id: "d", tags: ["user-requested"] },
+      { id: "e", tags: ["DONE"] },
     ])
-    expect(groups).toHaveLength(1)
-    expect(groups[0]?.id).toBe("done")
-    expect(groups[0]?.sessions.map((session) => session.id)).toEqual(["today", "yesterday", "older"])
+    expect(ids(groups, "initiatives")).toEqual(["a"])
+    expect(ids(groups, "userRequests")).toEqual(["b"])
+    expect(ids(groups, "harness")).toEqual(["c"])
+    expect(ids(groups, "done")).toEqual(["e"])
+    expect(ids(groups, "recent")).toEqual(["d"])
   })
 
-  test("buckets pending sessions by day and hides empty groups", () => {
-    const groups = group([
-      { id: "today", at: at(0), tags: [] },
-      { id: "yesterday", at: at(1), tags: [] },
-      { id: "older", at: at(3), tags: [] },
-    ])
-    expect(groups.map((group) => group.id)).toEqual(["today", "yesterday", "older"])
-    expect(groups.map((group) => group.sessions[0]?.id)).toEqual(["today", "yesterday", "older"])
+  test("places a session in every top section whose tag it carries", () => {
+    const groups = group([{ id: "multi", tags: ["harness", "initiative", "user-request"] }])
+    expect(ids(groups, "initiatives")).toEqual(["multi"])
+    expect(ids(groups, "userRequests")).toEqual(["multi"])
+    expect(ids(groups, "harness")).toEqual(["multi"])
+    expect(ids(groups, "recent")).toBeUndefined()
   })
 
-  test("titles the older group as recent when today and yesterday are empty", () => {
+  test("sends sessions carrying none of the section tags to recent sessions", () => {
     const groups = group([
-      { id: "older", at: at(3), tags: [] },
-      { id: "done", at: at(0), tags: ["done"] },
+      { id: "untagged", tags: [] },
+      { id: "other-tag", tags: ["research"] },
+      { id: "initiative", tags: ["initiative"] },
     ])
-    expect(groups.map((group) => group.id)).toEqual(["older", "done"])
-    expect(groups[0]?.title).toBe("Recent sessions")
+    expect(ids(groups, "recent")).toEqual(["untagged", "other-tag"])
+    expect(ids(groups, "initiatives")).toEqual(["initiative"])
   })
 
-  test("titles the older group as older when a pending session is recent", () => {
+  test("terminal-tagged sessions appear only in their terminal sections", () => {
     const groups = group([
-      { id: "older", at: at(3), tags: [] },
-      { id: "today", at: at(0), tags: [] },
+      { id: "done-initiative", tags: ["done", "initiative"] },
+      { id: "abandoned-harness", tags: ["abandoned", "harness"] },
     ])
-    expect(groups.find((group) => group.id === "older")?.title).toBe("Older")
+    expect(groups.map((group) => group.id)).toEqual(["abandoned", "done"])
+    expect(ids(groups, "abandoned")).toEqual(["abandoned-harness"])
+    expect(ids(groups, "done")).toEqual(["done-initiative"])
+  })
+
+  test("a session with both terminal tags appears in both terminal sections", () => {
+    const groups = group([{ id: "both", tags: ["done", "abandoned"] }])
+    expect(ids(groups, "abandoned")).toEqual(["both"])
+    expect(ids(groups, "done")).toEqual(["both"])
+  })
+
+  test("hides empty sections", () => {
+    const groups = group([
+      { id: "done", tags: ["done"] },
+      { id: "recent", tags: [] },
+    ])
+    expect(groups.map((group) => group.id)).toEqual(["recent", "done"])
+  })
+
+  test("preserves input order within sections", () => {
+    const groups = group([
+      { id: "first", tags: ["initiative"] },
+      { id: "second", tags: ["initiative"] },
+      { id: "third", tags: [] },
+      { id: "fourth", tags: ["done"] },
+      { id: "fifth", tags: ["done"] },
+    ])
+    expect(ids(groups, "initiatives")).toEqual(["first", "second"])
+    expect(ids(groups, "recent")).toEqual(["third"])
+    expect(ids(groups, "done")).toEqual(["fourth", "fifth"])
   })
 })
