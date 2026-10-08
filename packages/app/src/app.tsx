@@ -46,6 +46,7 @@ import { ServerSyncProvider, useServerSync } from "@/context/server-sync"
 import { GlobalProvider, useGlobal } from "@/context/global"
 import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
+import { InitiativesProvider } from "@/context/initiatives"
 import { SessionNoteProvider } from "@/context/session-note"
 import { SessionTagsProvider } from "@/context/session-tags"
 import { LayoutProvider } from "@/context/layout"
@@ -69,6 +70,7 @@ import { createSessionLineage } from "@/pages/session/session-lineage"
 
 import { SessionPage, SessionRouteErrorBoundary, TargetSessionRouteContent } from "@/pages/session"
 import { NewHome } from "@/pages/home"
+import { InitiativeSpacePage } from "@/pages/initiative"
 import { LegacyHome } from "@/pages/home/legacy-home"
 
 const NewSession = lazy(() => import("@/pages/new-session"))
@@ -132,6 +134,12 @@ function TargetServerRoute(props: ParentProps) {
 const TargetSessionRoute = () => (
   <TargetServerRoute>
     <TargetSessionRouteContent />
+  </TargetServerRoute>
+)
+
+const TargetInitiativeRoute = () => (
+  <TargetServerRoute>
+    <InitiativeSpacePage />
   </TargetServerRoute>
 )
 
@@ -586,32 +594,34 @@ export function AppInterface(props: {
     >
       <GlobalProvider>
         <SessionTagsProvider>
-          <SessionNoteProvider>
-            <SettingsProvider>
-              <ConnectionGate disableHealthCheck={props.disableHealthCheck} startup={props.startup}>
-                <Show when={useSettings().general.newLayoutDesigns().toString()} keyed>
-                  <Dynamic
-                    component={props.router ?? Router}
-                    root={(routerProps) => (
-                      <TabsProvider>
-                        <PermissionProvider>
-                          <NotificationProvider>
-                            <ServerShell>
-                              <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
-                                <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
-                              </Show>
-                            </ServerShell>
-                          </NotificationProvider>
-                        </PermissionProvider>
-                      </TabsProvider>
-                    )}
-                  >
-                    <Routes serverScoped={props.serverScoped} />
-                  </Dynamic>
-                </Show>
-              </ConnectionGate>
-            </SettingsProvider>
-          </SessionNoteProvider>
+          <InitiativesProvider>
+            <SessionNoteProvider>
+              <SettingsProvider>
+                <ConnectionGate disableHealthCheck={props.disableHealthCheck} startup={props.startup}>
+                  <Show when={useSettings().general.newLayoutDesigns().toString()} keyed>
+                    <Dynamic
+                      component={props.router ?? Router}
+                      root={(routerProps) => (
+                        <TabsProvider>
+                          <PermissionProvider>
+                            <NotificationProvider>
+                              <ServerShell>
+                                <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
+                                  <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
+                                </Show>
+                              </ServerShell>
+                            </NotificationProvider>
+                          </PermissionProvider>
+                        </TabsProvider>
+                      )}
+                    >
+                      <Routes serverScoped={props.serverScoped} />
+                    </Dynamic>
+                  </Show>
+                </ConnectionGate>
+              </SettingsProvider>
+            </SessionNoteProvider>
+          </InitiativesProvider>
         </SessionTagsProvider>
       </GlobalProvider>
     </ServerProvider>
@@ -645,6 +655,7 @@ function Routes(props: { serverScoped?: JSX.Element }) {
         <Route path="/" component={NewHome} />
         <Route path="/:dir/session/:id" component={NewLayoutLegacySessionRedirect} />
         <Route path="/server/:serverKey/session/:id" component={TargetSessionRoute} />
+        <Route path="/server/:serverKey/initiative/:id" component={TargetInitiativeRoute} />
       </Show>
       <Route path="/new-session" component={DraftRoute} />
     </>

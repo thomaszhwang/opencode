@@ -579,6 +579,7 @@ export const dict = {
 
   "toast.session.listFailed.title": "Failed to load sessions for {{project}}",
   "toast.session.tags.updateFailed.title": "Failed to update session tags",
+  "toast.session.initiatives.updateFailed.title": "Failed to update initiatives",
   "toast.session.note.updateFailed.title": "Failed to update session note",
   "toast.project.reloadFailed.title": "Failed to reload {{project}}",
 
@@ -680,6 +681,14 @@ export const dict = {
   "dialog.session.tags.placeholder": "Add a tag",
   "dialog.session.note.title": "Edit note",
   "dialog.session.note.placeholder": "Add a note",
+  "initiative.status.active": "Active",
+  "initiative.status.done": "Done",
+  "initiative.status.archived": "Archived",
+  "initiative.space.conversations": "Conversations",
+  "initiative.space.empty": "Nothing here yet",
+  "initiative.space.empty.description": "Tag a session with Initiative:{{name}} to add it to this space",
+  "initiative.notFound": "This initiative cannot be found",
+  "initiative.notFound.description": "This page points to an initiative that no longer exists on this server.",
   "home.providerTip": "Connect to 75+ providers to use other models, including Claude, GPT, Gemini, etc",
 
   "session.tab.session": "Session",
