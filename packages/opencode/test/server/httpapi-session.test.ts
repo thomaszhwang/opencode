@@ -28,6 +28,7 @@ import { MessageID, PartID, SessionID, type SessionID as SessionIDType } from ".
 import { Database } from "@opencode-ai/core/database/database"
 import { SessionInputTable, SessionMessageTable, SessionTable } from "@opencode-ai/core/session/sql"
 import { SessionMessage } from "@opencode-ai/core/session/message"
+import { SessionSchema } from "@opencode-ai/core/session/schema"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import * as DateTime from "effect/DateTime"
@@ -790,6 +791,28 @@ describe("session HttpApi", () => {
         ).toBe(true)
       }),
     { git: true, config: { formatter: false, lsp: false, share: "disabled" } },
+  )
+
+  it.instance(
+    "round-trips session metadata through update and the v2 wire",
+    () =>
+      Effect.gen(function* () {
+        const test = yield* TestInstance
+        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
+        const session = yield* createSession({ title: "metadata" })
+        const metadata = { note: "remember the **milk**", tags: ["done", "important"] }
+
+        const updated = yield* requestJson<Session.Info>(pathFor(SessionPaths.update, { sessionID: session.id }), {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ metadata }),
+        })
+        expect(updated.metadata).toEqual(metadata)
+
+        const got = yield* requestJson<{ data: SessionSchema.Info }>(`/api/session/${session.id}`, { headers })
+        expect(got.data.metadata).toEqual(metadata)
+      }),
+    { git: true, config: { formatter: false, lsp: false } },
   )
 
   it.instance(
