@@ -17,10 +17,16 @@ export function DialogInitiative(props: { server: ServerConnection.Key }) {
   const initiatives = useInitiatives()
   const navigate = useNavigate()
   const [name, setName] = createSignal("")
+  const [saving, setSaving] = createSignal(false)
 
   const save = async () => {
+    if (saving()) return
+    setSaving(true)
     const initiative = await initiatives.create(name())
-    if (!initiative) return
+    if (!initiative) {
+      setSaving(false)
+      return
+    }
     dialog.close()
     navigate(initiativeHref(props.server, initiative.id))
   }
@@ -55,7 +61,7 @@ export function DialogInitiative(props: { server: ServerConnection.Key }) {
           <ButtonV2 variant="ghost-muted" size="normal" type="button" onClick={() => dialog.close()}>
             {language.t("common.cancel")}
           </ButtonV2>
-          <ButtonV2 variant="neutral" size="normal" type="submit" disabled={!name().trim()}>
+          <ButtonV2 variant="neutral" size="normal" type="submit" disabled={!name().trim() || saving()}>
             {language.t("common.save")}
           </ButtonV2>
         </DialogFooter>
