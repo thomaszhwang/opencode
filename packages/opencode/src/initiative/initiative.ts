@@ -18,8 +18,9 @@ export const Info = Schema.Struct({
 export type Info = Schema.Schema.Type<typeof Info>
 
 // The name is the `Initiative:<Name>` tag segment and the on-disk docs folder
-// name, so it can't contain `:` or path separators.
-export const Name = Schema.String.check(Schema.isMinLength(1)).check(Schema.isPattern(/^[^:/\\]+$/))
+// name, so it can't contain `:` or path separators, and can't be `.` or `..`
+// (both resolve outside the initiative docs folder).
+export const Name = Schema.String.check(Schema.isMinLength(1)).check(Schema.isPattern(/^(?!\.{1,2}$)[^:/\\]+$/))
 
 export const CreateInput = Schema.Struct({
   name: Name,

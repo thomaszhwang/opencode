@@ -123,7 +123,7 @@ describe("initiative HttpApi", () => {
 
   it.live("rejects invalid create payloads", () =>
     Effect.gen(function* () {
-      for (const name of ["", "a:b", "a/b", "a\\b"]) {
+      for (const name of ["", "a:b", "a/b", "a\\b", ".", ".."]) {
         const response = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
           HttpClientRequest.bodyJsonUnsafe({ name }),
           HttpClient.execute,
