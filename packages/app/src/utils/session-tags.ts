@@ -26,6 +26,14 @@ export function sessionMatchesLabel(sessionTags: string[], labelTags: string[]):
   return labelTags.every((tag) => have.has(tag.toLowerCase()))
 }
 
+export function toggleSessionTag(tags: string[], tag: string): string[] {
+  const key = tag.toLowerCase()
+  if (tags.some((value) => value.toLowerCase() === key)) {
+    return normalizeSessionTags(tags.filter((value) => value.toLowerCase() !== key))
+  }
+  return normalizeSessionTags([...tags, key])
+}
+
 // Session tags are stored server-side in the session's metadata record and
 // reach the app through the synced session info cache.
 export function sessionTagsFromMetadata(session: Session | undefined): string[] {

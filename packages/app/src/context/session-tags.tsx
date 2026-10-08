@@ -16,6 +16,7 @@ export {
   normalizeSessionTags,
   sessionMatchesLabel,
   sessionTagsFromMetadata,
+  toggleSessionTag,
   type SessionLabel,
 } from "@/utils/session-tags"
 
