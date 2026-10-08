@@ -3927,6 +3927,9 @@ export type SessionV2Info = {
     archived?: number
   }
   title: string
+  metadata?: {
+    [key: string]: unknown
+  }
   location: LocationRef
   subpath?: string
   revert?: RevertState
@@ -7388,6 +7391,94 @@ export type GlobalUpgradeResponses = {
 }
 
 export type GlobalUpgradeResponse = GlobalUpgradeResponses[keyof GlobalUpgradeResponses]
+
+export type LabelListData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/label"
+}
+
+export type LabelListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type LabelListError = LabelListErrors[keyof LabelListErrors]
+
+export type LabelListResponses = {
+  /**
+   * All labels
+   */
+  200: Array<{
+    id: string
+    name: string
+    tags: Array<string>
+  }>
+}
+
+export type LabelListResponse = LabelListResponses[keyof LabelListResponses]
+
+export type LabelCreateData = {
+  body?: {
+    name: string
+    tags: Array<string>
+  }
+  path?: never
+  query?: never
+  url: "/label"
+}
+
+export type LabelCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type LabelCreateError = LabelCreateErrors[keyof LabelCreateErrors]
+
+export type LabelCreateResponses = {
+  /**
+   * Created label
+   */
+  200: {
+    id: string
+    name: string
+    tags: Array<string>
+  }
+}
+
+export type LabelCreateResponse = LabelCreateResponses[keyof LabelCreateResponses]
+
+export type LabelRemoveData = {
+  body?: never
+  path: {
+    labelID: string
+  }
+  query?: never
+  url: "/label/{labelID}"
+}
+
+export type LabelRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type LabelRemoveError = LabelRemoveErrors[keyof LabelRemoveErrors]
+
+export type LabelRemoveResponses = {
+  /**
+   * Label removed
+   */
+  200: boolean
+}
+
+export type LabelRemoveResponse = LabelRemoveResponses[keyof LabelRemoveResponses]
 
 export type EventSubscribeData = {
   body?: never

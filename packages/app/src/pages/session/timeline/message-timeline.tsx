@@ -63,7 +63,7 @@ import { SessionContextUsage } from "@/components/session-context-usage"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { useLanguage } from "@/context/language"
-import { useSessionTags } from "@/context/session-tags"
+import { sessionTagsFromMetadata } from "@/context/session-tags"
 import { useSessionKey } from "@/pages/session/session-layout"
 import { useSessionArchive } from "@/pages/session/session-archive"
 import { useServerSDK } from "@/context/server-sdk"
@@ -267,7 +267,6 @@ export function MessageTimeline(props: {
   const settings = useSettings()
   const dialog = useDialog()
   const sessionArchive = useSessionArchive()
-  const sessionTags = useSessionTags()
   const language = useLanguage()
   const { params, sessionKey } = useSessionKey()
   const ownerSessionKey = sessionKey()
@@ -301,10 +300,7 @@ export function MessageTimeline(props: {
   })
   const titleValue = createMemo(() => info()?.title)
   const titleLabel = createMemo(() => sessionTitle(titleValue()))
-  const tags = createMemo(() => {
-    const id = sessionID()
-    return id ? sessionTags.tags(id) : []
-  })
+  const tags = createMemo(() => sessionTagsFromMetadata(info()))
   const shareUrl = createMemo(() => info()?.share?.url)
   const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
   const parentID = createMemo(() => info()?.parentID)

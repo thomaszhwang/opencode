@@ -1,17 +1,13 @@
 import { createSimpleContext } from "@opencode-ai/ui/context"
-import { createMemo, createSignal } from "solid-js"
-import { createStore } from "solid-js/store"
-import { Persist, persisted } from "@/utils/persist"
+import { createMemo, createResource, createSignal } from "solid-js"
+import type { Session } from "@opencode-ai/sdk/v2/client"
+import { useGlobal } from "@/context/global"
+import { useServer } from "@/context/server"
 
 export type SessionLabel = {
   id: string
   name: string
   tags: string[]
-}
-
-type SessionTagsStore = {
-  tags: Record<string, string[]>
-  labels: SessionLabel[]
 }
 
 export function normalizeSessionTags(input: string[]): string[] {
@@ -34,31 +30,53 @@ export function sessionMatchesLabel(sessionTags: string[], labelTags: string[]):
   return labelTags.every((tag) => have.has(tag.toLowerCase()))
 }
 
+// Session tags are stored server-side in the session's metadata record and
+// reach the app through the synced session info cache.
+export function sessionTagsFromMetadata(session: Session | undefined): string[] {
+  const raw = session?.metadata?.["tags"]
+  if (!Array.isArray(raw)) return []
+  return normalizeSessionTags(raw.filter((tag): tag is string => typeof tag === "string"))
+}
+
 export const { use: useSessionTags, provider: SessionTagsProvider } = createSimpleContext({
   name: "SessionTags",
   init: () => {
-    const [store, setStore] = persisted(
-      Persist.global("session-tags"),
-      createStore<SessionTagsStore>({ tags: {}, labels: [] }),
-    )
+    const global = useGlobal()
+    const server = useServer()
+    const ctx = () => {
+      const conn = server.current
+      if (!conn) return undefined
+      return global.ensureServerCtx(conn)
+    }
     const [activeID, setActiveID] = createSignal<string | null>(null)
 
-    const tagsFor = (sessionID: string): string[] => store.tags[sessionID] ?? []
+    // Live view of the synced per-server session cache. Note it only contains
+    // sessions the app has loaded or seen events for; callers displaying a
+    // session object should prefer it as a fallback (see DialogSessionTags).
+    const session = (sessionID: string) => ctx()?.sync.session.data.info[sessionID]
 
-    const setTags = (sessionID: string, tags: string[]) => {
+    // Writes read-modify-write against the server so concurrent or stale local
+    // state never clobbers other metadata keys or tags.
+    const setTags = async (session: Session, tags: string[]) => {
+      const c = ctx()
+      if (!c) return
       const clean = normalizeSessionTags(tags)
-      setStore("tags", (current) => {
-        const next = { ...current }
-        if (clean.length === 0) delete next[sessionID]
-        else next[sessionID] = clean
-        return next
-      })
+      const fresh = await c.sdk.client.session
+        .get({ sessionID: session.id, directory: session.directory })
+        .then((result) => result.data)
+        .catch(() => undefined)
+      const metadata = { ...((fresh?.metadata ?? session.metadata) as Record<string, unknown> | undefined) }
+      if (clean.length === 0) delete metadata["tags"]
+      else metadata["tags"] = clean
+      await c.sdk.client.session.update({ sessionID: session.id, directory: session.directory, metadata })
     }
 
     const all = createMemo(() => {
+      const c = ctx()
+      if (!c) return [] as string[]
       const seen = new Map<string, string>()
-      for (const tags of Object.values(store.tags)) {
-        for (const tag of tags) {
+      for (const item of Object.values(c.sync.session.data.info)) {
+        for (const tag of sessionTagsFromMetadata(item)) {
           const key = tag.toLowerCase()
           if (!seen.has(key)) seen.set(key, tag)
         }
@@ -66,39 +84,45 @@ export const { use: useSessionTags, provider: SessionTagsProvider } = createSimp
       return [...seen.values()].sort((a, b) => a.localeCompare(b))
     })
 
-    const active = createMemo<SessionLabel | null>(() => store.labels.find((label) => label.id === activeID()) ?? null)
+    const [labelList, { refetch: refetchLabels }] = createResource(
+      ctx,
+      async (c): Promise<SessionLabel[]> => {
+        const result = await c.sdk.client.label.list()
+        return result.data ?? []
+      },
+      { initialValue: [] },
+    )
 
-    const match = (sessionID: string, label: SessionLabel) => sessionMatchesLabel(tagsFor(sessionID), label.tags)
+    const active = createMemo<SessionLabel | null>(() => labelList().find((label) => label.id === activeID()) ?? null)
 
-    const matches = (sessionID: string) => {
-      const label = active()
-      if (!label) return true
-      return match(sessionID, label)
-    }
-
-    const createLabel = (name: string, tags: string[]) => {
+    const createLabel = async (name: string, tags: string[]) => {
+      const c = ctx()
+      if (!c) return undefined
       const cleanName = name.trim()
       const cleanTags = normalizeSessionTags(tags)
       if (!cleanName || cleanTags.length === 0) return undefined
-      const label: SessionLabel = { id: crypto.randomUUID(), name: cleanName, tags: cleanTags }
-      setStore("labels", (current) => [...current, label])
+      const result = await c.sdk.client.label.create({ name: cleanName, tags: cleanTags })
+      const label = result.data
+      if (!label) return undefined
+      await refetchLabels()
       return label
     }
 
-    const removeLabel = (id: string) => {
-      setStore("labels", (current) => current.filter((label) => label.id !== id))
+    const removeLabel = async (id: string) => {
+      const c = ctx()
+      if (!c) return
+      await c.sdk.client.label.remove({ labelID: id })
       if (activeID() === id) setActiveID(null)
+      await refetchLabels()
     }
 
     return {
-      tags: tagsFor,
+      session,
       setTags,
       all,
-      labels: () => store.labels,
+      labels: () => labelList(),
       active,
       select: setActiveID,
-      match,
-      matches,
       createLabel,
       removeLabel,
     }

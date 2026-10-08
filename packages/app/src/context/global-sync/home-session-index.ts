@@ -176,6 +176,7 @@ function toLegacySummary(session: SessionV2Info): Session {
     path: session.subpath,
     parentID: session.parentID,
     cost: session.cost,
+    metadata: session.metadata,
     tokens: session.tokens,
     title: session.title,
     agent: session.agent,

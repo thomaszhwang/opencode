@@ -13,6 +13,9 @@ export function normalizeSessionInfo(input: SessionInfo | Session): Session {
     path: input.subpath,
     parentID: input.parentID,
     cost: input.cost,
+    // The vendored client's SessionInfo predates the metadata field, but the
+    // server already returns it at runtime — read it through the v1 shape.
+    metadata: (input as Partial<Pick<Session, "metadata">>).metadata,
     tokens: input.tokens,
     title: withTimestampedFallback(input),
     agent: input.agent,
