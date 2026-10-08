@@ -67,6 +67,7 @@ export type HomeSessionsViewProps = {
   onCreateLabel: () => void
   onRemoveLabel: (id: string) => void
   onEditTags: (session: Session) => void
+  onToggleTag: (session: Session, tag: string) => void
   onCreateSession: () => void
   onOpenSession: (session: Session, options?: OpenSessionOptions) => void
   onArchiveSession: (session: Session) => Promise<void>
@@ -548,14 +549,45 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
         <span class="flex shrink-0 items-center gap-1">
           <For each={statusTags()}>
             {(status) => (
-              <IconV2
-                name={status.icon}
-                size="small"
-                classList={{
-                  [status.activeClass]: status.active,
-                  "text-v2-icon-icon-muted opacity-30": !status.active,
-                }}
-              />
+              <TooltipV2
+                class="flex shrink-0 items-center"
+                placement="bottom"
+                value={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+              >
+                {/* Interactive span inside the row's <button> keeps the layout
+                    untouched; stopPropagation keeps clicks/keys from opening the session. */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={status.active}
+                  aria-label={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                  class="flex shrink-0 cursor-pointer items-center"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    props.onToggleTag(props.record.session, status.tag)
+                  }}
+                  onAuxClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return
+                    event.preventDefault()
+                    event.stopPropagation()
+                    props.onToggleTag(props.record.session, status.tag)
+                  }}
+                >
+                  <IconV2
+                    name={status.icon}
+                    size="small"
+                    classList={{
+                      [status.activeClass]: status.active,
+                      "text-v2-icon-icon-muted opacity-30": !status.active,
+                    }}
+                  />
+                </span>
+              </TooltipV2>
             )}
           </For>
         </span>

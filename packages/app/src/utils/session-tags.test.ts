@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Session } from "@opencode-ai/sdk/v2/client"
-import { normalizeSessionTags, sessionMatchesLabel, sessionTagsFromMetadata } from "./session-tags"
+import { normalizeSessionTags, sessionMatchesLabel, sessionTagsFromMetadata, toggleSessionTag } from "./session-tags"
 
 function sessionWithMetadata(metadata: unknown): Session {
   return { metadata } as Session
@@ -35,6 +35,24 @@ describe("sessionMatchesLabel", () => {
 
   test("matching is case-insensitive", () => {
     expect(sessionMatchesLabel(["Fleet"], ["fleet"])).toBe(true)
+  })
+})
+
+describe("toggleSessionTag", () => {
+  test("appends a missing tag in canonical lowercase", () => {
+    expect(toggleSessionTag(["fleet"], "Done")).toEqual(["fleet", "done"])
+  })
+
+  test("removes a present tag", () => {
+    expect(toggleSessionTag(["done", "fleet"], "done")).toEqual(["fleet"])
+  })
+
+  test("removes every case variant of the tag", () => {
+    expect(toggleSessionTag(["Done", "fleet", "DONE"], "done")).toEqual(["fleet"])
+  })
+
+  test("toggling twice from empty returns to empty", () => {
+    expect(toggleSessionTag(toggleSessionTag([], "done"), "done")).toEqual([])
   })
 })
 
