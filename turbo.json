@@ -5,7 +5,11 @@
   "tasks": {
     "typecheck": {},
     "build": {
-      "dependsOn": [],
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@opencode-ai/desktop#build": {
+      "dependsOn": ["^build", "opencode#build"],
       "outputs": ["dist/**"]
     },
     "opencode#test": {
