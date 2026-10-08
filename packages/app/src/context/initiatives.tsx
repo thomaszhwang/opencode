@@ -15,7 +15,7 @@ import { useServer } from "@/context/server"
 import { preferLiveSession } from "@/pages/home/home-live-sessions"
 import { compareSessionTime, displayName, projectForSession } from "@/pages/layout/helpers"
 import { formatServerError } from "@/utils/server-errors"
-import { sessionTagsFromMetadata } from "@/utils/session-tags"
+import { isInitiativeMember } from "@/utils/session-tags"
 import { showToast } from "@/utils/toast"
 
 export type InitiativeInfo = InitiativeListResponse[number]
@@ -160,7 +160,10 @@ export const { use: useInitiatives, provider: InitiativesProvider } = createSimp
 
     return {
       list: () => initiativeList(),
-      loading: () => initiativeList.loading,
+      // Gate on the index fetch too: the shared key can hold a sibling's empty
+      // initialData while the first real load is still in flight, and showing
+      // the page then would flash an empty member list.
+      loading: () => initiativeList.loading || indexLoad.isFetching,
       counts,
       memberSessions,
       create,
@@ -168,9 +171,3 @@ export const { use: useInitiatives, provider: InitiativesProvider } = createSimp
     }
   },
 })
-
-// Membership is the `Initiative:<Name>` tag, matched case-insensitively (D1).
-function isInitiativeMember(session: Session, name: string) {
-  const target = `initiative:${name.toLowerCase()}`
-  return sessionTagsFromMetadata(session).some((tag) => tag.toLowerCase() === target)
-}
