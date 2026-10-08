@@ -16,6 +16,7 @@ import { ServerConnection } from "@/context/server"
 import {
   sessionMatchesLabel,
   sessionTagsFromMetadata,
+  toggleSessionTag,
   useSessionTags,
   type SessionLabel,
 } from "@/context/session-tags"
@@ -298,6 +299,9 @@ export function createHomeSessionsController(home: HomeController) {
       remove: tags.removeLabel,
       edit: (session: Session) => {
         void dialog.show(() => <DialogSessionTags session={session} />)
+      },
+      toggle: (session: Session, tag: string) => {
+        void tags.setTags(session, (current) => toggleSessionTag(current, tag))
       },
       create: () => {
         void dialog.show(() => <DialogSessionLabel />)
