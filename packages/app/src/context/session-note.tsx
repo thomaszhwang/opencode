@@ -31,18 +31,21 @@ export const { use: useSessionNote, provider: SessionNoteProvider } = createSimp
     // metadata from a fresh server read, so rapid edits and stale UI state
     // never clobber each other or other metadata keys (e.g. tags). A failed
     // read or write aborts with a toast instead of falling back to stale state.
-    const writes = new Map<string, Promise<void>>()
-    const setNote = (session: Session, text: string) => {
+    // Resolves whether the write landed so callers (e.g. the editor dialog)
+    // can keep the draft open on failure; the chain itself always resolves.
+    const writes = new Map<string, Promise<unknown>>()
+    const setNote = (session: Session, text: string): Promise<boolean> => {
       const c = ctx()
-      if (!c) return Promise.resolve()
-      const write = (writes.get(session.id) ?? Promise.resolve())
+      if (!c) return Promise.resolve(false)
+      const write: Promise<boolean> = (writes.get(session.id) ?? Promise.resolve())
         .then(async () => {
           const fresh = await c.sdk.client.session
             .get({ sessionID: session.id, directory: session.directory })
             .then((result) => result.data)
-          if (!fresh) return
+          if (!fresh) return false
           const metadata = sessionNoteMerge(fresh.metadata, text)
           await c.sdk.client.session.update({ sessionID: session.id, directory: session.directory, metadata })
+          return true
         })
         .catch((error: unknown) => {
           showToast({
@@ -50,6 +53,7 @@ export const { use: useSessionNote, provider: SessionNoteProvider } = createSimp
             title: language.t("toast.session.note.updateFailed.title"),
             description: formatServerError(error, language.t),
           })
+          return false
         })
       writes.set(session.id, write)
       return write

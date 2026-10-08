@@ -23,7 +23,9 @@ export function DialogSessionNote(props: { session: Session }) {
   const [draft, setDraft] = createSignal(sessionNote(current()))
 
   const save = async (text: string) => {
-    await notes.setNote(props.session, text)
+    // Keep the dialog (and the draft) open when the write fails; the store
+    // already toasted the reason.
+    if (!(await notes.setNote(props.session, text))) return
     dialog.close()
   }
 
