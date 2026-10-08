@@ -153,7 +153,11 @@ const layer = Layer.effect(
 
     const docRead = Effect.fn("Initiative.docRead")(function* (id: string, name: string) {
       const initiative = yield* requireById(id)
-      const content = yield* fs.readFileStringSafe(path.join(docsDir(initiative.name), name)).pipe(Effect.orDie)
+      const content = yield* fs.readFileStringSafe(path.join(docsDir(initiative.name), name)).pipe(
+        // Reading a directory named `*.md` fails with BadResource — not a doc, so 404.
+        Effect.catchReason("PlatformError", "BadResource", () => Effect.succeed(undefined)),
+        Effect.orDie,
+      )
       if (content === undefined) return yield* new NotFoundError({ message: `Doc not found: ${name}` })
       return content
     })

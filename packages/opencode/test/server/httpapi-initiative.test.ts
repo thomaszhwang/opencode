@@ -183,8 +183,9 @@ describe("initiative HttpApi", () => {
 
   it.live("rejects invalid doc names and missing docs", () =>
     Effect.gen(function* () {
+      const name = uniqueName("Docs initiative")
       const created = yield* HttpClientRequest.post(InitiativePaths.create).pipe(
-        HttpClientRequest.bodyJsonUnsafe({ name: uniqueName("Docs initiative") }),
+        HttpClientRequest.bodyJsonUnsafe({ name }),
         HttpClient.execute,
       )
       const initiative = (yield* created.json) as Initiative.Info
@@ -199,6 +200,11 @@ describe("initiative HttpApi", () => {
 
       const missingDoc = yield* HttpClient.execute(HttpClientRequest.get(docPath("missing.md")))
       expect(missingDoc.status).toBe(404)
+
+      // A directory named like a doc is not a doc: read must 404, not 500.
+      yield* Effect.promise(() => fs.mkdir(path.join(Global.Path.data, "initiative", name, "subdir.md")))
+      const dirDoc = yield* HttpClient.execute(HttpClientRequest.get(docPath("subdir.md")))
+      expect(dirDoc.status).toBe(404)
 
       const unknownList = yield* HttpClient.execute(
         HttpClientRequest.get(InitiativePaths.docList.replace(":initiativeID", "ini_missing")),
