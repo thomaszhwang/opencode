@@ -1,11 +1,5 @@
 import type { Session } from "@opencode-ai/sdk/v2/client"
 
-export type SessionLabel = {
-  id: string
-  name: string
-  tags: string[]
-}
-
 export function normalizeSessionTags(input: string[]): string[] {
   const seen = new Set<string>()
   const result: string[] = []
