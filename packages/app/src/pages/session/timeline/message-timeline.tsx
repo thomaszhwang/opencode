@@ -1498,6 +1498,25 @@ export function MessageTimeline(props: {
                   <Show when={!title.editing}>
                     <button
                       type="button"
+                      data-slot="session-title-tags-edit"
+                      class="flex shrink-0 items-center rounded-[6px] px-1 py-0.5 hover:bg-v2-overlay-simple-overlay-hover"
+                      classList={{
+                        "text-v2-icon-icon-base": tags().length > 0,
+                        "text-v2-icon-icon-muted": tags().length === 0,
+                      }}
+                      onClick={() => {
+                        const session = info()
+                        if (!session) return
+                        void dialog.show(() => <DialogSessionTags session={session} />)
+                      }}
+                      aria-label={language.t("dialog.session.tags.title")}
+                    >
+                      <IconV2 name="tag" size="small" />
+                    </button>
+                  </Show>
+                  <Show when={!title.editing}>
+                    <button
+                      type="button"
                       data-slot="session-title-note"
                       class="flex shrink-0 items-center rounded-[6px] px-1 py-0.5 hover:bg-v2-overlay-simple-overlay-hover"
                       classList={{
