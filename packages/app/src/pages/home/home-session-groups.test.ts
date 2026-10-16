@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
+import { groupHomeSessions, type FixedGroupId, type HomeSectionDef, type HomeSessionGroupId } from "./home-session-groups"
 
-const titles: Record<HomeSessionGroupId, string> = {
+const titles: Record<FixedGroupId, string> = {
   initiatives: "Initiatives",
   userRequests: "User Requests",
   harness: "Harness",
@@ -12,10 +12,11 @@ const titles: Record<HomeSessionGroupId, string> = {
 
 type Fixture = { id: string; tags: string[] }
 
-function group(records: Fixture[]) {
+function group(records: Fixture[], sections: HomeSectionDef[] = []) {
   return groupHomeSessions(records, {
     tags: (record) => record.tags,
     titles,
+    sections,
   })
 }
 
@@ -148,5 +149,90 @@ describe("groupHomeSessions", () => {
     expect(ids(groups, "initiatives")).toEqual(["first", "second"])
     expect(ids(groups, "recent")).toEqual(["third"])
     expect(ids(groups, "done")).toEqual(["fourth", "fifth"])
+  })
+})
+
+describe("groupHomeSessions label sections", () => {
+  const sections: HomeSectionDef[] = [
+    { id: "label:q4", title: "Q4", tags: ["q4"] },
+    { id: "label:q4-planning", title: "Q4 planning", tags: ["Q4", "Planning"] },
+  ]
+
+  test("emits label sections after the fixed top sections and before recent, in input order", () => {
+    const groups = group(
+      [
+        { id: "initiative", tags: ["initiative"] },
+        { id: "q4", tags: ["q4"] },
+        { id: "plain", tags: [] },
+        { id: "done", tags: ["done"] },
+      ],
+      sections,
+    )
+    expect(groups.map((group) => group.id)).toEqual([
+      "initiatives",
+      "label:q4",
+      "label:q4-planning",
+      "recent",
+      "done",
+    ])
+    expect(groups.find((group) => group.id === "label:q4")).toMatchObject({ title: "Q4", kind: "label" })
+    expect(groups.filter((group) => group.kind === "fixed").map((group) => group.id)).toEqual([
+      "initiatives",
+      "recent",
+      "done",
+    ])
+  })
+
+  test("matches label sections by AND of their tags, case-insensitively", () => {
+    const groups = group(
+      [
+        { id: "both", tags: ["Q4", "planning"] },
+        { id: "one", tags: ["q4"] },
+      ],
+      sections,
+    )
+    expect(ids(groups, "label:q4")).toEqual(["both", "one"])
+    expect(ids(groups, "label:q4-planning")).toEqual(["both"])
+  })
+
+  test("a session joins every matching label section and still shows in its fixed top section", () => {
+    const groups = group([{ id: "multi", tags: ["harness", "q4", "planning"] }], sections)
+    expect(ids(groups, "harness")).toEqual(["multi"])
+    expect(ids(groups, "label:q4")).toEqual(["multi"])
+    expect(ids(groups, "label:q4-planning")).toEqual(["multi"])
+    expect(ids(groups, "recent")).toBeUndefined()
+  })
+
+  test("recent excludes sessions matched by a label section", () => {
+    const groups = group(
+      [
+        { id: "sectioned", tags: ["q4"] },
+        { id: "plain", tags: ["research"] },
+      ],
+      sections,
+    )
+    expect(ids(groups, "recent")).toEqual(["plain"])
+    expect(ids(groups, "label:q4")).toEqual(["sectioned"])
+  })
+
+  test("terminal sessions never join label sections", () => {
+    const groups = group(
+      [
+        { id: "done-q4", tags: ["done", "q4", "planning"] },
+        { id: "abandoned-q4", tags: ["abandoned", "q4"] },
+      ],
+      sections,
+    )
+    expect(groups.map((group) => group.id)).toEqual(["label:q4", "label:q4-planning", "abandoned", "done"])
+    expect(ids(groups, "label:q4")).toEqual([])
+    expect(ids(groups, "abandoned")).toEqual(["abandoned-q4"])
+    expect(ids(groups, "done")).toEqual(["done-q4"])
+  })
+
+  test("emits label sections even when empty", () => {
+    const groups = group([{ id: "plain", tags: [] }], sections)
+    expect(groups.map((group) => group.id)).toEqual(["label:q4", "label:q4-planning", "recent"])
+    expect(ids(groups, "label:q4")).toEqual([])
+    expect(ids(groups, "label:q4-planning")).toEqual([])
   })
 })

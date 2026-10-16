@@ -58,6 +58,7 @@ export type HomeSessionsViewProps = {
   groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
   onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
   onMoveGroup: (id: HomeSessionGroup["id"], toIndex: number) => void
+  onRemoveGroup: (id: HomeSessionGroup["id"]) => void
   showProjectName: Accessor<boolean>
   server: Accessor<ServerConnection.Key>
   canCreateSession: Accessor<boolean>
@@ -513,6 +514,7 @@ function HomeSessionGroupSlot(
   return (
     <>
       <HomeSessionGroupHeader
+        language={props.language}
         title={
           collapsed()
             ? props.language.t("home.sessions.group.count", { title: group().title, count: group().sessions.length })
@@ -526,6 +528,11 @@ function HomeSessionGroupSlot(
         onSetHandle={sortable.handleRef}
         elevated={props.index() === 0}
         collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
+        remove={
+          group().kind === "label"
+            ? { name: group().title, onRemove: () => props.onRemoveGroup(props.id) }
+            : undefined
+        }
       />
       <Show when={!collapsed()}>
         <div class={`flex min-w-0 flex-col gap-px pt-4 ${props.index() === props.groups().length - 1 ? "" : "mb-6"}`}>
@@ -537,12 +544,14 @@ function HomeSessionGroupSlot(
 }
 
 function HomeSessionGroupHeader(props: {
+  language: HomeSessionsViewProps["language"]
   title: string
   titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
   onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
   collapse?: { collapsed: boolean; onToggle: () => void }
+  remove?: { name: string; onRemove: () => void }
 }) {
   return (
     <div
@@ -585,6 +594,27 @@ function HomeSessionGroupHeader(props: {
           {props.title}
         </div>
       </div>
+      <Show when={props.remove}>
+        {(remove) => (
+          <button
+            type="button"
+            data-action="home-session-group-remove"
+            aria-label={props.language.t("home.sessions.sections.remove", { name: remove().name })}
+            class={`
+              pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
+              rounded-[4px] text-v2-icon-icon-muted
+              hover:bg-v2-overlay-simple-overlay-hover
+            `}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              remove().onRemove()
+            }}
+          >
+            <IconV2 name="xmark-small" size="small" />
+          </button>
+        )}
+      </Show>
     </div>
   )
 }

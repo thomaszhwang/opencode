@@ -15,6 +15,7 @@ export function HomeSessions(props: {
       groupCollapsed={props.sessions.groups.collapsed}
       onToggleGroupCollapsed={props.sessions.groups.toggleCollapsed}
       onMoveGroup={props.sessions.groups.move}
+      onRemoveGroup={props.sessions.groups.remove}
       showProjectName={props.sessions.session.showProjectName}
       server={props.sessions.session.server}
       canCreateSession={props.sessions.session.canCreate}

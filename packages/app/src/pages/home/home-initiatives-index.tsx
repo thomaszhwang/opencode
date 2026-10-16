@@ -3,6 +3,7 @@ import { type Accessor, For } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { DialogInitiative } from "@/components/dialog-initiative"
+import { DialogSection } from "@/components/dialog-section"
 import { useInitiatives, type InitiativeInfo } from "@/context/initiatives"
 import { useLanguage } from "@/context/language"
 import type { ServerConnection } from "@/context/server"
@@ -39,6 +40,21 @@ export function HomeInitiativesIndex(props: { server: Accessor<ServerConnection.
       >
         <IconV2 name="plus" />
         {language.t("home.sessions.initiatives.new")}
+      </button>
+      <button
+        type="button"
+        data-component="home-section-new"
+        class={`
+          flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5
+          text-[12px] leading-4 text-v2-text-text-faint [font-weight:530]
+          transition-[background-color,color] duration-[120ms] ease-in-out
+          hover:bg-v2-background-bg-layer-02 hover:text-v2-text-text-muted
+          focus-visible:bg-v2-background-bg-layer-02 focus-visible:outline-none
+        `}
+        onClick={() => void dialog.show(() => <DialogSection />)}
+      >
+        <IconV2 name="plus" />
+        {language.t("home.sessions.sections.new")}
       </button>
     </div>
   )
