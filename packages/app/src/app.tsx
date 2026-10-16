@@ -47,6 +47,7 @@ import { GlobalProvider, useGlobal } from "@/context/global"
 import { HighlightsProvider } from "@/context/highlights"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import { InitiativesProvider } from "@/context/initiatives"
+import { LabelsProvider } from "@/context/labels"
 import { SessionNoteProvider } from "@/context/session-note"
 import { SessionTagsProvider } from "@/context/session-tags"
 import { LayoutProvider } from "@/context/layout"
@@ -595,32 +596,34 @@ export function AppInterface(props: {
       <GlobalProvider>
         <SessionTagsProvider>
           <InitiativesProvider>
-            <SessionNoteProvider>
-              <SettingsProvider>
-                <ConnectionGate disableHealthCheck={props.disableHealthCheck} startup={props.startup}>
-                  <Show when={useSettings().general.newLayoutDesigns().toString()} keyed>
-                    <Dynamic
-                      component={props.router ?? Router}
-                      root={(routerProps) => (
-                        <TabsProvider>
-                          <PermissionProvider>
-                            <NotificationProvider>
-                              <ServerShell>
-                                <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
-                                  <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
-                                </Show>
-                              </ServerShell>
-                            </NotificationProvider>
-                          </PermissionProvider>
-                        </TabsProvider>
-                      )}
-                    >
-                      <Routes serverScoped={props.serverScoped} />
-                    </Dynamic>
-                  </Show>
-                </ConnectionGate>
-              </SettingsProvider>
-            </SessionNoteProvider>
+            <LabelsProvider>
+              <SessionNoteProvider>
+                <SettingsProvider>
+                  <ConnectionGate disableHealthCheck={props.disableHealthCheck} startup={props.startup}>
+                    <Show when={useSettings().general.newLayoutDesigns().toString()} keyed>
+                      <Dynamic
+                        component={props.router ?? Router}
+                        root={(routerProps) => (
+                          <TabsProvider>
+                            <PermissionProvider>
+                              <NotificationProvider>
+                                <ServerShell>
+                                  <Show when={useSettings().general.newLayoutDesigns()} fallback={routerProps.children}>
+                                    <NewAppLayout serverScoped={props.serverScoped}>{routerProps.children}</NewAppLayout>
+                                  </Show>
+                                </ServerShell>
+                              </NotificationProvider>
+                            </PermissionProvider>
+                          </TabsProvider>
+                        )}
+                      >
+                        <Routes serverScoped={props.serverScoped} />
+                      </Dynamic>
+                    </Show>
+                  </ConnectionGate>
+                </SettingsProvider>
+              </SessionNoteProvider>
+            </LabelsProvider>
           </InitiativesProvider>
         </SessionTagsProvider>
       </GlobalProvider>

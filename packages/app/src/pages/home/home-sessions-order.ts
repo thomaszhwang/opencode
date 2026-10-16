@@ -1,23 +1,23 @@
 import type { HomeSessionGroupId } from "./home-session-groups"
 
-// Mirrors the fixed emission order of groupHomeSessions (top sections, then
-// recent, then terminal sections); ids missing from the stored order slot in
-// here, so new sections appear at their default position without a migration.
-const DEFAULT_GROUP_ORDER: HomeSessionGroupId[] = [
-  "initiatives",
-  "userRequests",
-  "harness",
-  "recent",
-  "abandoned",
-  "done",
-]
-
-export function resolveGroupOrder(stored: HomeSessionGroupId[]): HomeSessionGroupId[] {
-  const known = stored.filter((id, index) => DEFAULT_GROUP_ORDER.includes(id) && stored.indexOf(id) === index)
-  return [...known, ...DEFAULT_GROUP_ORDER.filter((id) => !known.includes(id))]
+// Mirrors the emission order of groupHomeSessions (fixed top sections, then
+// label sections in creation order, then recent and terminal); ids missing
+// from the stored order slot in here, so new sections appear at their default
+// position without a migration.
+export function defaultGroupOrder(labels: `label:${string}`[]): HomeSessionGroupId[] {
+  return ["initiatives", "userRequests", "harness", ...labels, "recent", "abandoned", "done"]
 }
 
-export function orderGroups<T extends { id: HomeSessionGroupId }>(groups: T[], stored: HomeSessionGroupId[]): T[] {
-  const order = resolveGroupOrder(stored)
+export function resolveGroupOrder(stored: HomeSessionGroupId[], defaults: HomeSessionGroupId[]): HomeSessionGroupId[] {
+  const known = stored.filter((id, index) => defaults.includes(id) && stored.indexOf(id) === index)
+  return [...known, ...defaults.filter((id) => !known.includes(id))]
+}
+
+export function orderGroups<T extends { id: HomeSessionGroupId }>(
+  groups: T[],
+  stored: HomeSessionGroupId[],
+  defaults: HomeSessionGroupId[],
+): T[] {
+  const order = resolveGroupOrder(stored, defaults)
   return [...groups].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
 }

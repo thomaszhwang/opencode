@@ -33,7 +33,8 @@ import type { HomeController } from "./home-controller"
 import { preferLiveSession } from "./home-live-sessions"
 import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
-import { orderGroups, resolveGroupOrder } from "./home-sessions-order"
+import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./home-sessions-order"
+import { useLabels } from "@/context/labels"
 
 const HOME_SESSION_LIMIT = 64
 // Status tags with a quick-filter toggle on the home search row, in the view's
@@ -50,6 +51,7 @@ export type HomeSessionGroup = {
   id: HomeSessionGroupId
   title: string
   sessions: HomeSessionRecord[]
+  kind: "fixed" | "label"
 }
 
 export type OpenSessionOptions = { background?: boolean }
@@ -60,6 +62,7 @@ export function createHomeSessionsController(home: HomeController) {
   const dialog = useDialog()
   const language = useLanguage()
   const tags = useSessionTags()
+  const labels = useLabels()
   const projectDirectories = createMemo(() => {
     const project = home.project.selected()
     if (!project) return home.project.list().flatMap(directories)
@@ -139,6 +142,12 @@ export function createHomeSessionsController(home: HomeController) {
     if (filters.length === 0) return allRecords().slice(0, HOME_SESSION_LIMIT)
     return allRecords().filter((record) => sessionMatchesLabel(tagsBySession().get(record.session.id) ?? [], filters))
   })
+  // User sections are server-side labels: `label:<id>` ids, AND tag membership,
+  // creation order (the provider's list order) after the fixed top sections.
+  const sections = createMemo(() =>
+    labels.list().map((label) => ({ id: `label:${label.id}` as const, title: label.name, tags: label.tags })),
+  )
+  const groupDefaults = createMemo(() => defaultGroupOrder(sections().map((section) => section.id)))
   const groups = createMemo(() =>
     orderGroups(
       groupHomeSessions(records(), {
@@ -151,8 +160,10 @@ export function createHomeSessionsController(home: HomeController) {
           abandoned: language.t("home.sessions.group.abandoned"),
           done: language.t("home.sessions.group.done"),
         },
+        sections: sections(),
       }),
       state().order,
+      groupDefaults(),
     ),
   )
   const prefetched = new Set<string>()
@@ -244,8 +255,12 @@ export function createHomeSessionsController(home: HomeController) {
         reordered.splice(toIndex, 0, ...reordered.splice(from, 1))
         // Sections with no sessions aren't rendered; keep them in their existing
         // relative order behind the reordered rendered ids.
-        const hidden = resolveGroupOrder(state().order).filter((item) => !reordered.includes(item))
+        const hidden = resolveGroupOrder(state().order, groupDefaults()).filter((item) => !reordered.includes(item))
         setState("order", [...reordered, ...hidden])
+      },
+      remove: (id: HomeSessionGroupId) => {
+        if (!id.startsWith("label:")) return
+        void labels.remove(id.slice("label:".length))
       },
     },
     session: {
