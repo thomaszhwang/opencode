@@ -34,12 +34,16 @@ import { preferLiveSession } from "./home-live-sessions"
 import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
 import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./home-sessions-order"
+import {
+  resolveGroupTerminalVisibility,
+  type HomeTerminalTag,
+  type HomeTerminalVisibilityStore,
+} from "./home-sessions-visibility"
 import { useLabels } from "@/context/labels"
 
 const HOME_SESSION_LIMIT = 64
 // Status tags with a quick-filter toggle on the home search row, in the view's
-// HOME_SESSION_STATUS_TAGS order — "done" has no toggle, it groups into its
-// own section instead.
+// HOME_SESSION_STATUS_TAGS order.
 export const HOME_SESSION_FILTER_TAGS = ["important", "urgent"] as const
 export type HomeSessionRecord = {
   session: Session
@@ -105,6 +109,7 @@ export function createHomeSessionsController(home: HomeController) {
       collapsed: {} as Partial<Record<HomeSessionGroupId, boolean>>,
       statusFilters: {} as Partial<Record<string, boolean>>,
       order: [] as HomeSessionGroupId[],
+      terminalVisibility: {} as HomeTerminalVisibilityStore,
     }),
   )
   const [state] = createResource(
@@ -157,10 +162,9 @@ export function createHomeSessionsController(home: HomeController) {
           userRequests: language.t("home.sessions.group.userRequests"),
           harness: language.t("home.sessions.group.harness"),
           recent: language.t("sidebar.project.recentSessions"),
-          abandoned: language.t("home.sessions.group.abandoned"),
-          done: language.t("home.sessions.group.done"),
         },
         sections: sections(),
+        visibility: (id) => resolveGroupTerminalVisibility(state().terminalVisibility, id),
       }),
       state().order,
       groupDefaults(),
@@ -247,6 +251,9 @@ export function createHomeSessionsController(home: HomeController) {
       collapsed: (id: HomeSessionGroupId) => resolveGroupCollapsed(state().collapsed, id),
       toggleCollapsed: (id: HomeSessionGroupId) =>
         setState("collapsed", id, !resolveGroupCollapsed(state().collapsed, id)),
+      terminalVisibility: (id: HomeSessionGroupId) => resolveGroupTerminalVisibility(state().terminalVisibility, id),
+      toggleTerminal: (id: HomeSessionGroupId, tag: HomeTerminalTag) =>
+        setState("terminalVisibility", id, (current) => ({ ...current, [tag]: !(current?.[tag] ?? false) })),
       move: (id: HomeSessionGroupId, toIndex: number) => {
         const rendered = groups().map((group) => group.id)
         const from = rendered.indexOf(id)
