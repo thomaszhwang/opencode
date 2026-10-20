@@ -668,6 +668,8 @@ export const dict = {
   "home.sessions.group.older": "Older",
   "home.sessions.group.done": "Done",
   "home.sessions.group.count": "{{title}} ({{count}})",
+  "home.sessions.group.status.waiting": "{{count}} waiting",
+  "home.sessions.group.status.running": "{{count}} running",
   "home.sessions.group.initiatives": "Initiatives",
   "home.sessions.initiatives.new": "New initiative",
   "home.sessions.initiatives.remove": "Remove initiative {{name}}",

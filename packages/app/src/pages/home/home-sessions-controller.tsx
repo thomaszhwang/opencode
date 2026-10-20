@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/solid-query"
 import { type Accessor, createEffect, createMemo, createResource, createRoot, type JSX, startTransition } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { useCommand } from "@/context/command"
+import { useGlobal } from "@/context/global"
 import {
   loadHomeSessionIndex,
   retainHomeSessions,
@@ -12,6 +13,8 @@ import {
 } from "@/context/global-sync/home-session-index"
 import type { LocalProject } from "@/context/layout"
 import { useLanguage } from "@/context/language"
+import { useNotification } from "@/context/notification"
+import { usePermission } from "@/context/permission"
 import { ServerConnection } from "@/context/server"
 import {
   sessionMatchesLabel,
@@ -24,6 +27,7 @@ import { DialogSessionTags } from "@/components/dialog-session-tags"
 import { sessionHasOpenTab, useTabs } from "@/context/tabs"
 import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
 import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
+import { sessionPermissionRequest, sessionQuestionRequest } from "@/pages/session/composer/session-request-tree"
 import { pathKey } from "@/utils/path-key"
 import { Persist, persisted } from "@/utils/persist"
 import { showToast } from "@/utils/toast"
@@ -33,6 +37,7 @@ import type { HomeController } from "./home-controller"
 import { preferLiveSession } from "./home-live-sessions"
 import { resolveGroupCollapsed } from "./home-sessions-collapse"
 import { groupHomeSessions, type HomeSessionGroupId } from "./home-session-groups"
+import { countHomeSessionBadges, resolveHomeSessionBadge, type HomeSessionBadge } from "./home-sessions-status"
 import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./home-sessions-order"
 import { useLabels } from "@/context/labels"
 
@@ -63,6 +68,9 @@ export function createHomeSessionsController(home: HomeController) {
   const language = useLanguage()
   const tags = useSessionTags()
   const labels = useLabels()
+  const global = useGlobal()
+  const notification = useNotification()
+  const permission = usePermission()
   const projectDirectories = createMemo(() => {
     const project = home.project.selected()
     if (!project) return home.project.list().flatMap(directories)
@@ -166,6 +174,34 @@ export function createHomeSessionsController(home: HomeController) {
       groupDefaults(),
     ),
   )
+  // Badge inputs are exactly what the row avatar hook reads
+  // (pages/layout/project-avatar-state.ts), so expanding a section and
+  // counting dots and spinners reproduces the collapsed header badges.
+  const sessionBadges = createMemo(() => {
+    const map = new Map<string, HomeSessionBadge>()
+    const key = home.selection.value().server
+    const conn = global.servers.list().find((item) => ServerConnection.key(item) === key)
+    if (!conn) return map
+    const serverSync = global.ensureServerCtx(conn).sync
+    const permissionState = permission.ensureServerState(key)
+    const notificationState = notification.ensureServerState(key)
+    for (const record of records()) {
+      const directory = record.session.directory
+      const [store] = serverSync.child(directory, { bootstrap: false })
+      map.set(
+        record.session.id,
+        resolveHomeSessionBadge({
+          needsAttention:
+            !!sessionPermissionRequest(store.session, serverSync.session.data.permission, record.session.id, (item) =>
+              !permissionState.autoResponds(item, directory),
+            ) || !!sessionQuestionRequest(store.session, serverSync.session.data.question, record.session.id),
+          working: serverSync.session.data.session_working(record.session.id),
+          unseen: notificationState.session.unseenCount(record.session.id) > 0,
+        }),
+      )
+    }
+    return map
+  })
   const prefetched = new Set<string>()
 
   createEffect(() => {
@@ -245,6 +281,14 @@ export function createHomeSessionsController(home: HomeController) {
     },
     groups: {
       collapsed: (id: HomeSessionGroupId) => resolveGroupCollapsed(state().collapsed, id),
+      // Aggregated over the same group sessions array the header's "(N)"
+      // count uses.
+      status: (id: HomeSessionGroupId) => {
+        const group = groups().find((item) => item.id === id)
+        if (!group) return { waiting: 0, running: 0 }
+        const map = sessionBadges()
+        return countHomeSessionBadges(group.sessions.map((record) => map.get(record.session.id) ?? "none"))
+      },
       toggleCollapsed: (id: HomeSessionGroupId) =>
         setState("collapsed", id, !resolveGroupCollapsed(state().collapsed, id)),
       move: (id: HomeSessionGroupId, toIndex: number) => {
