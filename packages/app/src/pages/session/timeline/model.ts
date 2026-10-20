@@ -36,6 +36,7 @@ export function createTimelineModel(input: {
         }, 0)
       })
 
+      untrack(() => void serverSync().session.resolve(id, { force: true }).catch(() => {}))
       return sync().session.sync(id)
     },
   )
