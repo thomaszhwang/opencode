@@ -160,7 +160,6 @@ export function createHomeSessionsController(home: HomeController) {
         titles: {
           initiatives: language.t("home.sessions.group.initiatives"),
           userRequests: language.t("home.sessions.group.userRequests"),
-          harness: language.t("home.sessions.group.harness"),
           recent: language.t("sidebar.project.recentSessions"),
         },
         sections: sections(),

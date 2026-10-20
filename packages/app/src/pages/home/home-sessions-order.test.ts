@@ -2,12 +2,11 @@ import { describe, expect, test } from "bun:test"
 import type { HomeSessionGroupId } from "./home-session-groups"
 import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./home-sessions-order"
 
-const DEFAULT_ORDER: HomeSessionGroupId[] = ["initiatives", "userRequests", "harness", "recent"]
+const DEFAULT_ORDER: HomeSessionGroupId[] = ["initiatives", "userRequests", "recent"]
 
 const LABEL_ORDER: HomeSessionGroupId[] = [
   "initiatives",
   "userRequests",
-  "harness",
   "label:q4",
   "label:q4-planning",
   "recent",
@@ -39,7 +38,6 @@ describe("resolveGroupOrder", () => {
       "recent",
       "initiatives",
       "userRequests",
-      "harness",
       "label:q4-planning",
     ])
   })
@@ -51,19 +49,18 @@ describe("resolveGroupOrder", () => {
       "label:q4",
       "initiatives",
       "userRequests",
-      "harness",
       "label:q4-planning",
     ])
   })
 
   test("drops a deleted label's stored id", () => {
     const stored = ["label:gone", "recent"] as HomeSessionGroupId[]
-    expect(resolveGroupOrder(stored, DEFAULT_ORDER)).toEqual(["recent", "initiatives", "userRequests", "harness"])
+    expect(resolveGroupOrder(stored, DEFAULT_ORDER)).toEqual(["recent", "initiatives", "userRequests"])
   })
 
-  test("drops stored ids of the removed terminal sections", () => {
-    const stored = ["done", "abandoned", "recent"] as HomeSessionGroupId[]
-    expect(resolveGroupOrder(stored, DEFAULT_ORDER)).toEqual(["recent", "initiatives", "userRequests", "harness"])
+  test("drops stored ids of removed sections", () => {
+    const stored = ["done", "abandoned", "harness", "recent"] as HomeSessionGroupId[]
+    expect(resolveGroupOrder(stored, DEFAULT_ORDER)).toEqual(["recent", "initiatives", "userRequests"])
   })
 
   test("appends a new label at its default position", () => {
@@ -72,7 +69,6 @@ describe("resolveGroupOrder", () => {
       "recent",
       "initiatives",
       "userRequests",
-      "harness",
       "label:q4",
       "label:q4-planning",
     ])
