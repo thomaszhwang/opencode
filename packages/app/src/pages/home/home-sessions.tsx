@@ -13,6 +13,7 @@ export function HomeSessions(props: {
       language={props.sessions.copy.language}
       groups={props.sessions.data.groups}
       groupCollapsed={props.sessions.groups.collapsed}
+      groupStatus={props.sessions.groups.status}
       onToggleGroupCollapsed={props.sessions.groups.toggleCollapsed}
       groupTerminalVisibility={props.sessions.groups.terminalVisibility}
       onToggleGroupTerminal={props.sessions.groups.toggleTerminal}

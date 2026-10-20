@@ -12,6 +12,7 @@ import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { SessionProgressIndicatorV2 } from "@opencode-ai/session-ui/v2/session-progress-indicator-v2"
 import { useLanguage } from "@/context/language"
 import { ServerConnection } from "@/context/server"
 import { SessionTabAvatarView } from "@/pages/layout/session-tab-avatar"
@@ -68,6 +69,7 @@ export type HomeSessionsViewProps = {
   language: ReturnType<typeof useLanguage>
   groups: Accessor<HomeSessionGroup[]>
   groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
+  groupStatus: (id: HomeSessionGroup["id"]) => { waiting: number; running: number }
   onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
   groupTerminalVisibility: (id: HomeSessionGroup["id"]) => { done: boolean; abandoned: boolean }
   onToggleGroupTerminal: (id: HomeSessionGroup["id"], tag: "done" | "abandoned") => void
@@ -530,11 +532,9 @@ function HomeSessionGroupSlot(
     <>
       <HomeSessionGroupHeader
         language={props.language}
-        title={
-          collapsed()
-            ? props.language.t("home.sessions.group.count", { title: group().title, count: group().sessions.length })
-            : group().title
-        }
+        title={group().title}
+        count={collapsed() ? group().sessions.length : undefined}
+        status={collapsed() ? props.groupStatus(props.id) : undefined}
         titleOpacity={props.titleOpacity(props.id)}
         onSetRef={(element) => {
           props.onSetHeader(props.id, element)
@@ -563,6 +563,8 @@ function HomeSessionGroupSlot(
 function HomeSessionGroupHeader(props: {
   language: HomeSessionsViewProps["language"]
   title: string
+  count?: number
+  status?: { waiting: number; running: number }
   titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
   onSetHandle?: (element: HTMLDivElement) => void
@@ -575,6 +577,17 @@ function HomeSessionGroupHeader(props: {
   toggles?: { tag: "done" | "abandoned"; icon: string; active: boolean; label: string; onToggle: () => void }[]
   remove?: { name: string; onRemove: () => void }
 }) {
+  // Collapsed headers read "Title badges (N)"; with no badges the count key
+  // alone renders the header exactly as before.
+  const label = () =>
+    props.count === undefined
+      ? props.title
+      : props.language.t("home.sessions.group.count", { title: props.title, count: props.count })
+  const badges = createMemo(() => {
+    if (props.count === undefined) return
+    if (!props.status || (props.status.waiting === 0 && props.status.running === 0)) return
+    return { count: props.count, waiting: props.status.waiting, running: props.status.running }
+  })
   return (
     <div
       ref={props.onSetRef}
@@ -595,7 +608,7 @@ function HomeSessionGroupHeader(props: {
               type="button"
               data-action="home-session-group-collapse"
               aria-expanded={!collapse().collapsed}
-              aria-label={props.title}
+              aria-label={label()}
               class={`
                 pointer-events-auto -ml-1.5 flex size-5 shrink-0 cursor-pointer items-center justify-center
                 rounded-[4px] text-v2-icon-icon-muted
@@ -617,7 +630,40 @@ function HomeSessionGroupHeader(props: {
           )}
         </Show>
         <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
-          {props.title}
+          <Show when={badges()} fallback={label()}>
+            {(badges) => (
+              <>
+                {props.title}
+                <span class="ml-1 inline-flex items-center gap-1">
+                  <Show when={badges().waiting > 0}>
+                    <span
+                      role="img"
+                      class="inline-flex items-center gap-0.5"
+                      aria-label={props.language.t("home.sessions.group.status.waiting", {
+                        count: badges().waiting,
+                      })}
+                    >
+                      <span aria-hidden="true" class="size-1.5 rounded-full bg-v2-background-bg-accent" />
+                      {badges().waiting}
+                    </span>
+                  </Show>
+                  <Show when={badges().running > 0}>
+                    <span
+                      role="img"
+                      class="inline-flex items-center gap-0.5"
+                      aria-label={props.language.t("home.sessions.group.status.running", {
+                        count: badges().running,
+                      })}
+                    >
+                      <SessionProgressIndicatorV2 width={12} height={12} />
+                      {badges().running}
+                    </span>
+                  </Show>
+                </span>
+                {` (${badges().count})`}
+              </>
+            )}
+          </Show>
         </div>
       </div>
       <div class="flex shrink-0 items-center gap-1">
