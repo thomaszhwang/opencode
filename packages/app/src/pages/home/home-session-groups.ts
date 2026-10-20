@@ -1,6 +1,6 @@
 import { sessionMatchesLabel } from "@/utils/session-tags"
 
-export type FixedGroupId = "initiatives" | "userRequests" | "harness" | "recent"
+export type FixedGroupId = "initiatives" | "userRequests" | "recent"
 export type HomeSessionGroupId = FixedGroupId | `label:${string}`
 
 export interface HomeSectionDef {
@@ -21,7 +21,6 @@ export function groupHomeSessions<T>(
   const top = [
     { id: "initiatives", matches: (tag: string) => tag === "initiative" || tag.startsWith("initiative:") },
     { id: "userRequests", matches: (tag: string) => tag === "user-request" },
-    { id: "harness", matches: (tag: string) => tag === "harness" },
   ] as const
   const tags = (record: T) => input.tags(record).map((tag) => tag.toLowerCase())
   // Terminal tags keep a session in every section it matches instead of

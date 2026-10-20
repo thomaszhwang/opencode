@@ -20,9 +20,9 @@ describe("resolveGroupTerminalVisibility", () => {
   })
 
   test("a stored false wins over a stored true from another group", () => {
-    const stored = { initiatives: { done: true }, harness: { done: false } }
+    const stored = { initiatives: { done: true }, userRequests: { done: false } }
     expect(resolveGroupTerminalVisibility(stored, "initiatives")).toEqual({ done: true, abandoned: false })
-    expect(resolveGroupTerminalVisibility(stored, "harness")).toEqual({ done: false, abandoned: false })
+    expect(resolveGroupTerminalVisibility(stored, "userRequests")).toEqual({ done: false, abandoned: false })
   })
 
   test("stored values are independent per group", () => {

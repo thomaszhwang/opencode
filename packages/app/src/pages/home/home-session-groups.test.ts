@@ -4,7 +4,6 @@ import { groupHomeSessions, type FixedGroupId, type HomeSectionDef, type HomeSes
 const titles: Record<FixedGroupId, string> = {
   initiatives: "Initiatives",
   userRequests: "User Requests",
-  harness: "Harness",
   recent: "Recent sessions",
 }
 
@@ -32,12 +31,11 @@ describe("groupHomeSessions", () => {
       { id: "initiative", tags: ["Initiative"] },
       { id: "user-request", tags: ["User-Request"] },
     ])
-    expect(groups.map((group) => group.id)).toEqual(["initiatives", "userRequests", "harness", "recent"])
-    expect(groups.map((group) => group.title)).toEqual(["Initiatives", "User Requests", "Harness", "Recent sessions"])
+    expect(groups.map((group) => group.id)).toEqual(["initiatives", "userRequests", "recent"])
+    expect(groups.map((group) => group.title)).toEqual(["Initiatives", "User Requests", "Recent sessions"])
     expect(ids(groups, "initiatives")).toEqual(["initiative"])
     expect(ids(groups, "userRequests")).toEqual(["user-request"])
-    expect(ids(groups, "harness")).toEqual(["harness"])
-    expect(ids(groups, "recent")).toEqual(["recent"])
+    expect(ids(groups, "recent")).toEqual(["harness", "recent"])
   })
 
   test("matches section tags case-insensitively but not by substring", () => {
@@ -49,8 +47,7 @@ describe("groupHomeSessions", () => {
     ])
     expect(ids(groups, "initiatives")).toEqual(["a"])
     expect(ids(groups, "userRequests")).toEqual(["b"])
-    expect(ids(groups, "harness")).toEqual(["c"])
-    expect(ids(groups, "recent")).toEqual(["d"])
+    expect(ids(groups, "recent")).toEqual(["c", "d"])
   })
 
   test("matches bare and namespaced initiative tags, but not lookalike prefixes", () => {
@@ -66,10 +63,9 @@ describe("groupHomeSessions", () => {
   })
 
   test("places a session in every top section whose tag it carries", () => {
-    const groups = group([{ id: "multi", tags: ["harness", "initiative", "user-request"] }])
+    const groups = group([{ id: "multi", tags: ["initiative", "user-request"] }])
     expect(ids(groups, "initiatives")).toEqual(["multi"])
     expect(ids(groups, "userRequests")).toEqual(["multi"])
-    expect(ids(groups, "harness")).toEqual(["multi"])
     expect(ids(groups, "recent")).toBeUndefined()
   })
 
@@ -141,12 +137,12 @@ describe("groupHomeSessions terminal visibility", () => {
 
   test("toggles are independent per section", () => {
     const records = [
-      { id: "done-multi", tags: ["done", "initiative", "harness"] },
-      { id: "plain-multi", tags: ["initiative", "harness"] },
+      { id: "done-multi", tags: ["done", "initiative", "user-request"] },
+      { id: "plain-multi", tags: ["initiative", "user-request"] },
     ]
     const groups = group(records, [], { initiatives: { done: true } })
     expect(ids(groups, "initiatives")).toEqual(["done-multi", "plain-multi"])
-    expect(ids(groups, "harness")).toEqual(["plain-multi"])
+    expect(ids(groups, "userRequests")).toEqual(["plain-multi"])
   })
 
   test("an abandoned session with no other matching tags is a hidden recent member", () => {
@@ -193,8 +189,8 @@ describe("groupHomeSessions label sections", () => {
   })
 
   test("a session joins every matching label section and still shows in its fixed top section", () => {
-    const groups = group([{ id: "multi", tags: ["harness", "q4", "planning"] }], sections)
-    expect(ids(groups, "harness")).toEqual(["multi"])
+    const groups = group([{ id: "multi", tags: ["initiative", "q4", "planning"] }], sections)
+    expect(ids(groups, "initiatives")).toEqual(["multi"])
     expect(ids(groups, "label:q4")).toEqual(["multi"])
     expect(ids(groups, "label:q4-planning")).toEqual(["multi"])
     expect(ids(groups, "recent")).toBeUndefined()
