@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router"
-import { type Accessor, For } from "solid-js"
+import { type Accessor, For, Show } from "solid-js"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { DialogInitiative } from "@/components/dialog-initiative"
@@ -9,7 +9,11 @@ import { useLanguage } from "@/context/language"
 import type { ServerConnection } from "@/context/server"
 import { initiativeHref } from "@/utils/session-route"
 
-export function HomeInitiativesIndex(props: { server: Accessor<ServerConnection.Key> }) {
+export function HomeInitiativesIndex(props: {
+  server: Accessor<ServerConnection.Key>
+  canCreateSession: Accessor<boolean>
+  onCreateSession: () => void
+}) {
   const language = useLanguage()
   const dialog = useDialog()
   const initiatives = useInitiatives()
@@ -56,6 +60,24 @@ export function HomeInitiativesIndex(props: { server: Accessor<ServerConnection.
         <IconV2 name="plus" />
         {language.t("home.sessions.sections.new")}
       </button>
+      <Show when={props.canCreateSession()}>
+        <button
+          type="button"
+          data-component="home-session-new"
+          data-action="home-new-session"
+          class={`
+            flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5
+            text-[12px] leading-4 text-v2-text-text-faint [font-weight:530]
+            transition-[background-color,color] duration-[120ms] ease-in-out
+            hover:bg-v2-background-bg-layer-02 hover:text-v2-text-text-muted
+            focus-visible:bg-v2-background-bg-layer-02 focus-visible:outline-none
+          `}
+          onClick={props.onCreateSession}
+        >
+          <IconV2 name="edit" />
+          {language.t("command.session.new")}
+        </button>
+      </Show>
     </div>
   )
 }
