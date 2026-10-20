@@ -8,8 +8,8 @@ describe("groupCollapseDefault", () => {
   })
 
   test("expands the other groups by default", () => {
-    const ids: HomeSessionGroupId[] = ["initiatives", "userRequests", "harness", "recent", "abandoned", "label:q4"]
-    expect(ids.map(groupCollapseDefault)).toEqual([false, false, false, false, false, false])
+    const ids: HomeSessionGroupId[] = ["initiatives", "userRequests", "recent", "abandoned", "label:q4"]
+    expect(ids.map(groupCollapseDefault)).toEqual([false, false, false, false, false])
   })
 })
 

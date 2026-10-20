@@ -5,7 +5,7 @@ import type { HomeSessionGroupId } from "./home-session-groups"
 // from the stored order slot in here, so new sections appear at their default
 // position without a migration.
 export function defaultGroupOrder(labels: `label:${string}`[]): HomeSessionGroupId[] {
-  return ["initiatives", "userRequests", "harness", ...labels, "recent", "abandoned", "done"]
+  return ["initiatives", "userRequests", ...labels, "recent", "abandoned", "done"]
 }
 
 export function resolveGroupOrder(stored: HomeSessionGroupId[], defaults: HomeSessionGroupId[]): HomeSessionGroupId[] {

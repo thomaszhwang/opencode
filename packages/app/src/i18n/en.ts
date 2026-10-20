@@ -674,7 +674,6 @@ export const dict = {
   "home.sessions.sections.new": "New section",
   "home.sessions.sections.remove": "Remove section {{name}}",
   "home.sessions.group.userRequests": "User Requests",
-  "home.sessions.group.harness": "Harness",
   "home.sessions.group.abandoned": "Abandoned",
   "home.sessions.tags.edit": "Edit tags",
   "home.sessions.tags.status.done": "Done",

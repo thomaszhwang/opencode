@@ -5,7 +5,6 @@ import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./home-sessio
 const DEFAULT_ORDER: HomeSessionGroupId[] = [
   "initiatives",
   "userRequests",
-  "harness",
   "recent",
   "abandoned",
   "done",
@@ -14,7 +13,6 @@ const DEFAULT_ORDER: HomeSessionGroupId[] = [
 const LABEL_ORDER: HomeSessionGroupId[] = [
   "initiatives",
   "userRequests",
-  "harness",
   "label:q4",
   "label:q4-planning",
   "recent",
@@ -48,7 +46,6 @@ describe("resolveGroupOrder", () => {
       "recent",
       "initiatives",
       "userRequests",
-      "harness",
       "abandoned",
     ])
   })
@@ -60,7 +57,6 @@ describe("resolveGroupOrder", () => {
       "done",
       "initiatives",
       "userRequests",
-      "harness",
       "abandoned",
     ])
   })
@@ -71,7 +67,6 @@ describe("resolveGroupOrder", () => {
       "recent",
       "initiatives",
       "userRequests",
-      "harness",
       "abandoned",
       "done",
     ])
@@ -84,7 +79,6 @@ describe("resolveGroupOrder", () => {
       "recent",
       "initiatives",
       "userRequests",
-      "harness",
       "label:q4",
       "label:q4-planning",
       "abandoned",
