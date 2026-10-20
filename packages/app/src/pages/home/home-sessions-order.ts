@@ -1,11 +1,12 @@
 import type { HomeSessionGroupId } from "./home-session-groups"
 
 // Mirrors the emission order of groupHomeSessions (fixed top sections, then
-// label sections in creation order, then recent and terminal); ids missing
-// from the stored order slot in here, so new sections appear at their default
-// position without a migration.
+// label sections in creation order, then recent); ids missing from the stored
+// order slot in here, so new sections appear at their default position without
+// a migration. Stored terminal ids ("done"/"abandoned") from before their
+// sections were removed drop out via resolveGroupOrder's unknown-id handling.
 export function defaultGroupOrder(labels: `label:${string}`[]): HomeSessionGroupId[] {
-  return ["initiatives", "userRequests", "harness", ...labels, "recent", "abandoned", "done"]
+  return ["initiatives", "userRequests", "harness", ...labels, "recent"]
 }
 
 export function resolveGroupOrder(stored: HomeSessionGroupId[], defaults: HomeSessionGroupId[]): HomeSessionGroupId[] {

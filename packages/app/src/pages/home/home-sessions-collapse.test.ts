@@ -1,29 +1,18 @@
 import { describe, expect, test } from "bun:test"
-import type { HomeSessionGroupId } from "./home-session-groups"
-import { groupCollapseDefault, resolveGroupCollapsed } from "./home-sessions-collapse"
-
-describe("groupCollapseDefault", () => {
-  test("collapses the done group by default", () => {
-    expect(groupCollapseDefault("done")).toBe(true)
-  })
-
-  test("expands the other groups by default", () => {
-    const ids: HomeSessionGroupId[] = ["initiatives", "userRequests", "harness", "recent", "abandoned", "label:q4"]
-    expect(ids.map(groupCollapseDefault)).toEqual([false, false, false, false, false, false])
-  })
-})
+import { resolveGroupCollapsed } from "./home-sessions-collapse"
 
 describe("resolveGroupCollapsed", () => {
-  test("falls back to the default when no entry is stored", () => {
-    expect(resolveGroupCollapsed({}, "done")).toBe(true)
+  test("every group expands by default when no entry is stored", () => {
+    expect(resolveGroupCollapsed({}, "initiatives")).toBe(false)
     expect(resolveGroupCollapsed({}, "recent")).toBe(false)
+    expect(resolveGroupCollapsed({}, "label:q4")).toBe(false)
   })
 
-  test("a stored true wins over an expanded default", () => {
+  test("a stored true wins over the expanded default", () => {
     expect(resolveGroupCollapsed({ recent: true }, "recent")).toBe(true)
   })
 
-  test("a stored false wins over a collapsed default", () => {
-    expect(resolveGroupCollapsed({ done: false }, "done")).toBe(false)
+  test("a stored false wins", () => {
+    expect(resolveGroupCollapsed({ recent: false }, "recent")).toBe(false)
   })
 })

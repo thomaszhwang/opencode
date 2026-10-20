@@ -39,6 +39,18 @@ const HOME_SESSION_STATUS_TAGS = [
   { tag: "urgent", icon: "flame", activeClass: "text-v2-state-fg-danger" },
 ] as const
 
+// Every section header carries these two toggles revealing its done/abandoned
+// sessions in place; done reuses the row status check icon.
+const HOME_SESSION_TERMINAL_TOGGLES = [
+  { tag: "done", icon: "check", show: "home.sessions.group.showDone", hide: "home.sessions.group.hideDone" },
+  {
+    tag: "abandoned",
+    icon: "outline-xmark",
+    show: "home.sessions.group.showAbandoned",
+    hide: "home.sessions.group.hideAbandoned",
+  },
+] as const
+
 // Middle-click or Cmd+click on macOS (Ctrl+click elsewhere) opens a session
 // tab in the background without navigating, matching browser conventions.
 function isBackgroundOpen(event: MouseEvent) {
@@ -57,6 +69,8 @@ export type HomeSessionsViewProps = {
   groups: Accessor<HomeSessionGroup[]>
   groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
   onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
+  groupTerminalVisibility: (id: HomeSessionGroup["id"]) => { done: boolean; abandoned: boolean }
+  onToggleGroupTerminal: (id: HomeSessionGroup["id"], tag: "done" | "abandoned") => void
   onMoveGroup: (id: HomeSessionGroup["id"], toIndex: number) => void
   onRemoveGroup: (id: HomeSessionGroup["id"]) => void
   showProjectName: Accessor<boolean>
@@ -511,6 +525,19 @@ function HomeSessionGroupSlot(
     collisionDetector: closestCenter,
   })
   const collapsed = () => props.groupCollapsed(props.id)
+  const toggles = () => {
+    const visibility = props.groupTerminalVisibility(props.id)
+    return HOME_SESSION_TERMINAL_TOGGLES.map((toggle) => {
+      const active = visibility[toggle.tag]
+      return {
+        tag: toggle.tag,
+        icon: toggle.icon,
+        active,
+        label: props.language.t(active ? toggle.hide : toggle.show),
+        onToggle: () => props.onToggleGroupTerminal(props.id, toggle.tag),
+      }
+    })
+  }
   return (
     <>
       <HomeSessionGroupHeader
@@ -527,7 +554,9 @@ function HomeSessionGroupSlot(
         }}
         onSetHandle={sortable.handleRef}
         elevated={props.index() === 0}
+        ctaClearance={props.index() === 0 && props.canCreateSession()}
         collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
+        toggles={toggles()}
         remove={
           group().kind === "label"
             ? { name: group().title, onRemove: () => props.onRemoveGroup(props.id) }
@@ -550,7 +579,12 @@ function HomeSessionGroupHeader(props: {
   onSetRef: (element: HTMLDivElement) => void
   onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
+  // The "New session" CTA is absolutely positioned over the right end of the
+  // first section header; ctaClearance pads the header's right-side controls
+  // (toggles, remove) left of the CTA so they stay visible and clickable.
+  ctaClearance?: boolean
   collapse?: { collapsed: boolean; onToggle: () => void }
+  toggles?: { tag: "done" | "abandoned"; icon: string; active: boolean; label: string; onToggle: () => void }[]
   remove?: { name: string; onRemove: () => void }
 }) {
   return (
@@ -560,7 +594,11 @@ function HomeSessionGroupHeader(props: {
         pointer-events-none sticky top-[116px] flex h-7 min-w-0 items-center justify-between
         bg-v2-background-bg-base pl-3 lg:top-[140px]
       `}
-      classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
+      classList={{
+        "home-session-group-header z-[5]": !!props.elevated,
+        "z-10": !props.elevated,
+        "pr-36": !!props.ctaClearance,
+      }}
     >
       <div ref={props.onSetHandle} class="pointer-events-auto flex min-w-0 items-center gap-1">
         <Show when={props.collapse}>
@@ -594,27 +632,52 @@ function HomeSessionGroupHeader(props: {
           {props.title}
         </div>
       </div>
-      <Show when={props.remove}>
-        {(remove) => (
-          <button
-            type="button"
-            data-action="home-session-group-remove"
-            aria-label={props.language.t("home.sessions.sections.remove", { name: remove().name })}
-            class={`
-              pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
-              rounded-[4px] text-v2-icon-icon-muted
-              hover:bg-v2-overlay-simple-overlay-hover
-            `}
-            onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-              remove().onRemove()
-            }}
-          >
-            <IconV2 name="xmark-small" size="small" />
-          </button>
-        )}
-      </Show>
+      <div class="flex shrink-0 items-center gap-1">
+        <For each={props.toggles}>
+          {(toggle) => (
+            <button
+              type="button"
+              data-action={`home-session-group-toggle-${toggle.tag}`}
+              aria-pressed={toggle.active}
+              aria-label={toggle.label}
+              class={`
+                pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              classList={{ "opacity-30": !toggle.active }}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                toggle.onToggle()
+              }}
+            >
+              <IconV2 name={toggle.icon} size="small" />
+            </button>
+          )}
+        </For>
+        <Show when={props.remove}>
+          {(remove) => (
+            <button
+              type="button"
+              data-action="home-session-group-remove"
+              aria-label={props.language.t("home.sessions.sections.remove", { name: remove().name })}
+              class={`
+                pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                remove().onRemove()
+              }}
+            >
+              <IconV2 name="xmark-small" size="small" />
+            </button>
+          )}
+        </Show>
+      </div>
     </div>
   )
 }
