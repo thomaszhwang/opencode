@@ -108,23 +108,11 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
     >
       <div class="sticky top-0 z-30 shrink-0 bg-v2-background-bg-base pb-3 pt-6 lg:pt-12" onWheel={props.onWheel}>
         <HomeSessionSearch {...props} />
-        <HomeInitiativesIndex server={props.server} />
-        <Suspense>
-          <Show when={props.groups().length > 0 && props.canCreateSession()}>
-            <div class="pointer-events-none absolute right-0 top-[116px] z-20 flex lg:top-[140px]">
-              <ButtonV2
-                data-action="home-new-session"
-                variant="ghost-muted"
-                size="normal"
-                icon="edit"
-                class="pointer-events-auto h-7 px-2 [font-weight:530]"
-                onClick={props.onCreateSession}
-              >
-                {props.language.t("command.session.new")}
-              </ButtonV2>
-            </div>
-          </Show>
-        </Suspense>
+        <HomeInitiativesIndex
+          server={props.server}
+          canCreateSession={props.canCreateSession}
+          onCreateSession={props.onCreateSession}
+        />
       </div>
       <div class="pointer-events-none sticky top-[116px] z-40 h-0 -mr-3 lg:top-[140px]">
         <div
