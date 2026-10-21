@@ -542,7 +542,6 @@ function HomeSessionGroupSlot(
         }}
         onSetHandle={sortable.handleRef}
         elevated={props.index() === 0}
-        ctaClearance={props.index() === 0 && props.canCreateSession()}
         collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
         toggles={toggles()}
         remove={
@@ -569,10 +568,6 @@ function HomeSessionGroupHeader(props: {
   onSetRef: (element: HTMLDivElement) => void
   onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
-  // The "New session" CTA is absolutely positioned over the right end of the
-  // first section header; ctaClearance pads the header's right-side controls
-  // (toggles, remove) left of the CTA so they stay visible and clickable.
-  ctaClearance?: boolean
   collapse?: { collapsed: boolean; onToggle: () => void }
   toggles?: { tag: "done" | "abandoned"; icon: string; active: boolean; label: string; onToggle: () => void }[]
   remove?: { name: string; onRemove: () => void }
@@ -598,7 +593,6 @@ function HomeSessionGroupHeader(props: {
       classList={{
         "home-session-group-header z-[5]": !!props.elevated,
         "z-10": !props.elevated,
-        "pr-36": !!props.ctaClearance,
       }}
     >
       <div ref={props.onSetHandle} class="pointer-events-auto flex min-w-0 items-center gap-1">
