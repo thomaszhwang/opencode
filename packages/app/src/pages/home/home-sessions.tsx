@@ -29,7 +29,6 @@ export function HomeSessions(props: {
       searchResults={props.search.result.list}
       searchActive={props.search.result.active}
       searchNoResultsLabel={props.search.result.noResultsLabel}
-      titleOpacity={props.scroll.header.titleOpacity}
       isOpenTab={props.sessions.tab.isOpen}
       sessionTags={props.sessions.tags.for}
       statusFilterTags={props.sessions.tags.statusFilterTags}
@@ -42,8 +41,6 @@ export function HomeSessions(props: {
       onArchiveSession={props.sessions.session.archive}
       onSetHoverTarget={props.scroll.viewport.setHoverTarget}
       onSetThumbTrack={props.scroll.viewport.setThumbTrack}
-      onSetContent={props.scroll.header.setContent}
-      onSetHeader={props.scroll.header.setHeader}
       onWheel={props.scroll.viewport.containWheel}
       onSetSearchRoot={props.search.element.setRoot}
       onSetSearchInput={props.search.element.setInput}

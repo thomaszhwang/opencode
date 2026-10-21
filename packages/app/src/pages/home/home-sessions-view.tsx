@@ -85,7 +85,6 @@ export type HomeSessionsViewProps = {
   searchResults: Accessor<HomeSessionRecord[]>
   searchActive: Accessor<string>
   searchNoResultsLabel: Accessor<string>
-  titleOpacity: (id: HomeSessionGroup["id"]) => number
   isOpenTab: (record: HomeSessionRecord) => boolean
   sessionTags: (sessionID: string) => string[]
   statusFilterTags: Accessor<string[]>
@@ -98,8 +97,6 @@ export type HomeSessionsViewProps = {
   onArchiveSession: (session: Session) => Promise<void>
   onSetHoverTarget: (element: HTMLElement) => void
   onSetThumbTrack: (element: HTMLDivElement) => void
-  onSetContent: (element: HTMLDivElement) => void
-  onSetHeader: (id: HomeSessionGroup["id"], element: HTMLDivElement) => void
   onWheel: (event: WheelEvent) => void
   onSetSearchRoot: (element: HTMLDivElement) => void
   onSetSearchInput: (element: HTMLInputElement) => void
@@ -182,7 +179,6 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
               <div
                 ref={(element) => {
                   listRef = element
-                  props.onSetContent(element)
                 }}
                 class="flex flex-col pt-3 pr-3 pb-16"
               >
@@ -502,7 +498,7 @@ function HomeSessionGroupSlot(
   // The header is the sortable element (not a wrapper around header + rows):
   // sticky headers must stay direct children of the scroll column, or the
   // sticky containing block re-scopes to the wrapper and the overlapping
-  // header fade breaks. closestCenter then keeps drops over a section's rows
+  // header stacking breaks. closestCenter then keeps drops over a section's rows
   // targeting that section — the 28px header bands alone would leave most of
   // the column with no droppable under the pointer.
   const sortable = useSortable({
@@ -534,11 +530,7 @@ function HomeSessionGroupSlot(
         language={props.language}
         title={group().title}
         status={collapsed() ? props.groupStatus(props.id) : undefined}
-        titleOpacity={props.titleOpacity(props.id)}
-        onSetRef={(element) => {
-          props.onSetHeader(props.id, element)
-          sortable.ref(element)
-        }}
+        onSetRef={sortable.ref}
         onSetHandle={sortable.handleRef}
         elevated={props.index() === 0}
         collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
@@ -562,7 +554,6 @@ function HomeSessionGroupHeader(props: {
   language: HomeSessionsViewProps["language"]
   title: string
   status?: { waiting: number; running: number }
-  titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
   onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
@@ -614,7 +605,7 @@ function HomeSessionGroupHeader(props: {
             </button>
           )}
         </Show>
-        <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
+        <div class={HOME_SECTION_LABEL}>
           <Show when={badges()} fallback={props.title}>
             {(badges) => (
               <>
