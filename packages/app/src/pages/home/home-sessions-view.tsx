@@ -533,7 +533,6 @@ function HomeSessionGroupSlot(
       <HomeSessionGroupHeader
         language={props.language}
         title={group().title}
-        count={collapsed() ? group().sessions.length : undefined}
         status={collapsed() ? props.groupStatus(props.id) : undefined}
         titleOpacity={props.titleOpacity(props.id)}
         onSetRef={(element) => {
@@ -562,7 +561,6 @@ function HomeSessionGroupSlot(
 function HomeSessionGroupHeader(props: {
   language: HomeSessionsViewProps["language"]
   title: string
-  count?: number
   status?: { waiting: number; running: number }
   titleOpacity: number
   onSetRef: (element: HTMLDivElement) => void
@@ -572,16 +570,9 @@ function HomeSessionGroupHeader(props: {
   toggles?: { tag: "done" | "abandoned"; icon: string; active: boolean; label: string; onToggle: () => void }[]
   remove?: { name: string; onRemove: () => void }
 }) {
-  // Collapsed headers read "Title badges (N)"; with no badges the count key
-  // alone renders the header exactly as before.
-  const label = () =>
-    props.count === undefined
-      ? props.title
-      : props.language.t("home.sessions.group.count", { title: props.title, count: props.count })
   const badges = createMemo(() => {
-    if (props.count === undefined) return
     if (!props.status || (props.status.waiting === 0 && props.status.running === 0)) return
-    return { count: props.count, waiting: props.status.waiting, running: props.status.running }
+    return props.status
   })
   return (
     <div
@@ -602,7 +593,7 @@ function HomeSessionGroupHeader(props: {
               type="button"
               data-action="home-session-group-collapse"
               aria-expanded={!collapse().collapsed}
-              aria-label={label()}
+              aria-label={props.title}
               class={`
                 pointer-events-auto -ml-1.5 flex size-5 shrink-0 cursor-pointer items-center justify-center
                 rounded-[4px] text-v2-icon-icon-muted
@@ -624,7 +615,7 @@ function HomeSessionGroupHeader(props: {
           )}
         </Show>
         <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
-          <Show when={badges()} fallback={label()}>
+          <Show when={badges()} fallback={props.title}>
             {(badges) => (
               <>
                 {props.title}
@@ -633,28 +624,21 @@ function HomeSessionGroupHeader(props: {
                     <span
                       role="img"
                       class="inline-flex items-center gap-0.5"
-                      aria-label={props.language.t("home.sessions.group.status.waiting", {
-                        count: badges().waiting,
-                      })}
+                      aria-label={props.language.t("home.sessions.group.status.waiting")}
                     >
                       <span aria-hidden="true" class="size-1.5 rounded-full bg-v2-background-bg-accent" />
-                      {badges().waiting}
                     </span>
                   </Show>
                   <Show when={badges().running > 0}>
                     <span
                       role="img"
                       class="inline-flex items-center gap-0.5"
-                      aria-label={props.language.t("home.sessions.group.status.running", {
-                        count: badges().running,
-                      })}
+                      aria-label={props.language.t("home.sessions.group.status.running")}
                     >
                       <SessionProgressIndicatorV2 width={12} height={12} />
-                      {badges().running}
                     </span>
                   </Show>
                 </span>
-                {` (${badges().count})`}
               </>
             )}
           </Show>
