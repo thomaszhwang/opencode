@@ -46,7 +46,9 @@ import {
 } from "./home-sessions-visibility"
 import { useLabels } from "@/context/labels"
 
-const HOME_SESSION_LIMIT = 64
+// Sized so every session inside SESSION_RECENT_WINDOW (14 days) stays visible;
+// the recency window, not this cap, is the effective cutoff on the home page.
+const HOME_SESSION_LIMIT = 256
 // Status tags with a quick-filter toggle on the home search row, in the view's
 // HOME_SESSION_STATUS_TAGS order.
 export const HOME_SESSION_FILTER_TAGS = ["important", "urgent"] as const
