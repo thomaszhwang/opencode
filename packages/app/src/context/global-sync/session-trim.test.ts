@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { PermissionRequest, Session } from "@opencode-ai/sdk/v2/client"
 import { trimSessions } from "./session-trim"
+import { SESSION_RECENT_WINDOW } from "./types"
 
 const session = (input: { id: string; parentID?: string; created: number; updated?: number; archived?: number }) =>
   ({
@@ -33,11 +34,11 @@ describe("trimSessions", () => {
     const list = [
       session({ id: "root-1", created: now - 1000 }),
       session({ id: "root-2", created: now - 2000 }),
-      session({ id: "z-root", created: now - 30_000_000 }),
-      session({ id: "child-kept-by-root", parentID: "root-1", created: now - 20_000_000 }),
-      session({ id: "child-kept-by-permission", parentID: "z-root", created: now - 20_000_000 }),
+      session({ id: "z-root", created: now - 2 * SESSION_RECENT_WINDOW }),
+      session({ id: "child-kept-by-root", parentID: "root-1", created: now - SESSION_RECENT_WINDOW - 1_000 }),
+      session({ id: "child-kept-by-permission", parentID: "z-root", created: now - SESSION_RECENT_WINDOW - 1_000 }),
       session({ id: "child-kept-by-recency", parentID: "z-root", created: now - 500 }),
-      session({ id: "child-trimmed", parentID: "z-root", created: now - 20_000_000 }),
+      session({ id: "child-trimmed", parentID: "z-root", created: now - SESSION_RECENT_WINDOW - 1_000 }),
     ]
 
     const result = trimSessions(list, {

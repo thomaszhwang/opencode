@@ -12,6 +12,7 @@ import {
   parseHomeSessionIndex,
   retainHomeSessions,
 } from "./home-session-index"
+import { SESSION_RECENT_WINDOW } from "./types"
 
 const session = (input: {
   id: string
@@ -104,7 +105,7 @@ describe("Home V2 session index", () => {
   })
 
   test("preserves the per-directory Home retention limit", () => {
-    const now = 10 * 60 * 60 * 1000
+    const now = 2 * SESSION_RECENT_WINDOW
     const sessions = Array.from({ length: 80 }, (_, index) => ({
       ...parseHomeSessionIndex([session({ id: `session-${index}`, updated: index + 1 })])[0],
       directory: index % 2 === 0 ? "/one" : "/two",
