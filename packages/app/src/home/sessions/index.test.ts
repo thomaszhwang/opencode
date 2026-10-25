@@ -103,6 +103,52 @@ describe("Home session index", () => {
   })
 })
 
+// Retention mirrors the v1 home page: 256 rows per directory, a 14-day
+// recent-window bucket beyond the cap, and full history while a status
+// filter is active.
+describe("Home session retention", () => {
+  const stale = (directory: string, count: number) =>
+    history(directory, count).map((item, index) => ({
+      ...item,
+      time: {
+        created: now - SESSION_RECENT_WINDOW - (index + 2) * minute,
+        updated: now - SESSION_RECENT_WINDOW - (index + 1) * minute,
+      },
+    }))
+
+  test("retains the newest 256 per directory when nothing is inside the window", () => {
+    const result = retainHomeSessions([...stale("/a", 400), ...stale("/b", 300)], HOME_SESSION_LIMIT, now)
+
+    expect(result.filter((item) => item.location.directory === "/a")).toHaveLength(HOME_SESSION_LIMIT)
+    expect(result.filter((item) => item.location.directory === "/b")).toHaveLength(HOME_SESSION_LIMIT)
+    expect(ids(result.filter((item) => item.location.directory === "/a"))).toEqual(
+      ids(stale("/a", 400)).slice(0, HOME_SESSION_LIMIT),
+    )
+  })
+
+  test("keeps up to SESSION_RECENT_LIMIT beyond-cap rows inside the 14-day window", () => {
+    const mixed = history("/a", 400)
+    const inside = mixed.filter((item) => item.time.updated > now - SESSION_RECENT_WINDOW)
+    const result = retainHomeSessions(mixed, HOME_SESSION_LIMIT, now)
+
+    expect(inside.length).toBeGreaterThan(HOME_SESSION_LIMIT + SESSION_RECENT_LIMIT)
+    expect(result).toHaveLength(HOME_SESSION_LIMIT + SESSION_RECENT_LIMIT)
+    expect(ids(result)).toEqual(ids(mixed.slice(0, HOME_SESSION_LIMIT + SESSION_RECENT_LIMIT)))
+  })
+
+  test("an unlimited limit retains the full history for an active status filter", async () => {
+    const complete = [...history("/a", 400), ...stale("/b", 300)]
+    const loaded = await loadHomeSessionIndex(
+      async () => ({ data: complete, cursor: {} }),
+      undefined,
+      Number.MAX_SAFE_INTEGER,
+    )
+
+    expect(loaded).toHaveLength(complete.length)
+    expect(retainHomeSessions(loaded, Number.MAX_SAFE_INTEGER, now)).toHaveLength(complete.length)
+  })
+})
+
 // Home merges locally known sessions and pending removals into the fetched
 // index on every store change, then retains per directory for display and
 // search. The loaded subset must resolve to the same set as the complete index.
@@ -150,7 +196,7 @@ describe("Home session index parity with the complete index", () => {
   })
 
   test("with a directory entirely inside the recent window", async () => {
-    const hot = history("/hot", 300).map((item, index) => ({
+    const hot = history("/hot", 400).map((item, index) => ({
       ...item,
       time: { created: now - index * 1000 - 500, updated: now - index * 1000 },
     }))

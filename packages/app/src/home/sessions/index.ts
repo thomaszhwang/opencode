@@ -4,7 +4,7 @@ import { SESSION_RECENT_LIMIT, SESSION_RECENT_WINDOW } from "@/runtime/server/gl
 
 export const HOME_V2_SESSION_PAGE_LIMIT = 5_000
 
-export const HOME_SESSION_LIMIT = 64
+export const HOME_SESSION_LIMIT = 256
 
 // Rows kept per directory from the fetched index: the visible limit plus the
 // recent-window search bucket. Merging locally known sessions and pending
@@ -24,6 +24,7 @@ export async function loadHomeSessionIndex(
     options: { signal?: AbortSignal },
   ) => Promise<SessionsResponse>,
   signal?: AbortSignal,
+  limit = HOME_SESSION_INDEX_LIMIT,
 ) {
   const now = Date.now()
   let retained: SessionInfo[] = []
@@ -43,7 +44,7 @@ export async function loadHomeSessionIndex(
     // Fold each page in as it arrives: pages are newest first, so later pages
     // can only fill directories that still have room. Peak allocation is one
     // page plus the retained subset, not the whole history.
-    retained = retainHomeSessions([...retained, ...parseHomeSessionIndex(response.data)], HOME_SESSION_INDEX_LIMIT, now)
+    retained = retainHomeSessions([...retained, ...parseHomeSessionIndex(response.data)], limit, now)
 
     if (response.data.length < HOME_V2_SESSION_PAGE_LIMIT || !response.cursor.next) return retained
     cursor = response.cursor.next
