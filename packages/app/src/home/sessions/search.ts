@@ -10,8 +10,10 @@ import { createStore } from "solid-js/store"
 import type { HomeController } from "../model"
 import { homeSessionSearchKey, type HomeSessionRecord, type HomeSessionsController } from "./controller"
 import { looksLikeSessionID } from "@/session/search"
+import { sessionTagsFromMetadata } from "@/session/session-tags"
+import { statusFilterMatches } from "./filter"
 
-type HomeSessionSearchSource = Pick<HomeSessionsController, "data" | "session">
+type HomeSessionSearchSource = Pick<HomeSessionsController, "data" | "session" | "tags">
 
 export function createHomeSessionSearchController(home: HomeController, sessions: HomeSessionSearchSource) {
   const command = useCommand()
@@ -43,9 +45,14 @@ export function createHomeSessionSearchController(home: HomeController, sessions
 
     if (!value) return []
 
+    const filters = sessions.tags.statusFilterTags()
     const records = sessions.data
       .searchRecords()
-      .filter((record) => `${sessionLabel(record.session)} ${record.projectName}`.toLowerCase().includes(value))
+      .filter(
+        (record) =>
+          (filters.length === 0 || statusFilterMatches(sessionTagsFromMetadata(record.session), filters)) &&
+          `${sessionLabel(record.session)} ${record.projectName}`.toLowerCase().includes(value),
+      )
 
     if (!state.exact || records.some((record) => record.session.id === state.exact?.session.id)) return records
 
