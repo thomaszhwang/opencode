@@ -944,7 +944,8 @@ function mockHandlers(
           })),
         skill: () => Effect.sync(() => ({ location: location(config), data: resolve(config.skills ?? []) })),
         plugin: () => Effect.sync(() => ({ location: location(config), data: resolve(config.plugins ?? []) })),
-        label: () => Effect.sync(() => ({ location: location(config), data: resolve(config.labels ?? []) })),
+        // `label.list` is not Location.response-backed, so the wire body is a bare array (like worktreeList).
+        label: () => Effect.sync(() => resolve(config.labels ?? [])),
         labelCreate: (ctx) => {
           const create = config.onLabelCreate
 
