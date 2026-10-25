@@ -14,6 +14,7 @@ import { Initiative } from "@opencode/schema/initiative"
 import { Instruction } from "@opencode/schema/instruction"
 import { InstructionEntry } from "@opencode/schema/instruction-entry"
 import { Integration } from "@opencode/schema/integration"
+import { Label } from "@opencode/schema/label"
 import { Location } from "@opencode/schema/location"
 import { Mcp } from "@opencode/schema/mcp"
 import { Model } from "@opencode/schema/model"
@@ -60,6 +61,7 @@ const effectTypeReferences = [
   ...namespaceTypes("Instruction", "@opencode/schema/instruction", Instruction),
   ...namespaceTypes("InstructionEntry", "@opencode/schema/instruction-entry", InstructionEntry),
   ...namespaceTypes("Integration", "@opencode/schema/integration", Integration),
+  ...namespaceTypes("Label", "@opencode/schema/label", Label),
   typeReference("Location.PublicRef", "@opencode/schema/location", Location.PublicRef),
   typeReference("Location.PublicInfo", "@opencode/schema/location", Location.PublicInfo),
   ...namespaceTypes("Mcp", "@opencode/schema/mcp", Mcp),

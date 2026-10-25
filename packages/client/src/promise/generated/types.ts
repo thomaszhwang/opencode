@@ -291,6 +291,8 @@ export type PersistentPtyHandoff = { directory: string; instanceID: string; tick
 
 export type ReferenceGitSource = { type: "git"; repository: string; branch?: string }
 
+export type LabelInfo = { id: string; name: string; tags: Array<string> }
+
 export type InitiativeID = string
 
 export type InitiativeDocInfo = { name: string; timeUpdated: number }
@@ -5972,6 +5974,19 @@ export type WorktreeRemoveOutput = void
 export type WorktreeRefreshInput = { readonly projectID: { readonly projectID: string }["projectID"] }
 
 export type WorktreeRefreshOutput = void
+
+export type LabelListOutput = Array<LabelInfo>
+
+export type LabelCreateInput = {
+  readonly name: { readonly name: string; readonly tags: ReadonlyArray<string> }["name"]
+  readonly tags: { readonly name: string; readonly tags: ReadonlyArray<string> }["tags"]
+}
+
+export type LabelCreateOutput = LabelInfo
+
+export type LabelRemoveInput = { readonly labelID: { readonly labelID: string }["labelID"] }
+
+export type LabelRemoveOutput = boolean
 
 export type InitiativeListOutput = Array<InitiativeInfo>
 
