@@ -255,6 +255,15 @@ import type {
   LabelCreateOutput,
   LabelRemoveInput,
   LabelRemoveOutput,
+  InitiativeListOutput,
+  InitiativeCreateInput,
+  InitiativeCreateOutput,
+  InitiativeRemoveInput,
+  InitiativeRemoveOutput,
+  InitiativeDocListInput,
+  InitiativeDocListOutput,
+  InitiativeDocReadInput,
+  InitiativeDocReadOutput,
   VcsInitInput,
   VcsInitOutput,
   VcsGetInput,
@@ -310,6 +319,7 @@ interface RequestDescriptor {
   readonly successStatus: number
   readonly declaredStatuses: ReadonlyArray<number>
   readonly empty: boolean
+  readonly text?: true
   readonly binary?: true
 }
 
@@ -369,6 +379,7 @@ export function make(options: ClientOptions) {
     const response = await execute(descriptor, requestOptions)
     if (response.status !== descriptor.successStatus) return responseError(response, descriptor)
     if (descriptor.binary) return new Uint8Array(await response.arrayBuffer()) as A
+    if (descriptor.text) return (await response.text()) as A
     if (descriptor.empty) {
       try {
         await response.body?.cancel()
@@ -2167,6 +2178,61 @@ export function make(options: ClientOptions) {
           },
           requestOptions,
         ),
+    },
+    initiative: {
+      list: (requestOptions?: RequestOptions) =>
+        request<InitiativeListOutput>(
+          { method: "GET", path: `/api/initiative`, successStatus: 200, declaredStatuses: [400, 401], empty: false },
+          requestOptions,
+        ),
+      create: (input: InitiativeCreateInput, requestOptions?: RequestOptions) =>
+        request<InitiativeCreateOutput>(
+          {
+            method: "POST",
+            path: `/api/initiative`,
+            body: { name: input["name"], status: input["status"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401, 409],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: InitiativeRemoveInput, requestOptions?: RequestOptions) =>
+        request<InitiativeRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/api/initiative/${encodeURIComponent(input.initiativeID)}`,
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      doc: {
+        list: (input: InitiativeDocListInput, requestOptions?: RequestOptions) =>
+          request<InitiativeDocListOutput>(
+            {
+              method: "GET",
+              path: `/api/initiative/${encodeURIComponent(input.initiativeID)}/doc`,
+              successStatus: 200,
+              declaredStatuses: [400, 401, 404],
+              empty: false,
+            },
+            requestOptions,
+          ),
+        read: (input: InitiativeDocReadInput, requestOptions?: RequestOptions) =>
+          request<InitiativeDocReadOutput>(
+            {
+              method: "GET",
+              path: `/api/initiative/${encodeURIComponent(input.initiativeID)}/doc/${encodeURIComponent(input.name)}`,
+              successStatus: 200,
+              declaredStatuses: [400, 401, 404],
+              empty: false,
+              text: true,
+            },
+            requestOptions,
+          ),
+      },
     },
     vcs: {
       init: (input?: VcsInitInput, requestOptions?: RequestOptions) =>

@@ -922,18 +922,6 @@ describe("HttpApiCodegen.generate", () => {
 
   test("rejects Promise transports that are not implemented", () => {
     expect(() =>
-      emitPromise(
-        compileContract(
-          api(
-            HttpApiEndpoint.get("text", "/text", {
-              success: Schema.String.pipe(HttpApiSchema.asText()),
-            }),
-          ),
-        ),
-      ),
-    ).toThrow("Unsupported Promise success encoding: session.text")
-
-    expect(() =>
       emitPromise(compileContract(api(HttpApiEndpoint.get("read", "/file/*/tail", { success: Schema.String })))),
     ).toThrow("Unsupported Promise path wildcard: /file/*/tail")
 
@@ -1022,6 +1010,25 @@ describe("HttpApiCodegen.generate", () => {
     expect(Array.from(result)).toEqual([1, 2, 3])
     expect(request?.method).toBe("GET")
     expect(request?.url).toBe("https://example.com/file/src/a%20b%23c.ts?token=x%2Fy")
+  })
+
+  test("executes an emitted text GET through fetch", async () => {
+    const output = emitPromise(
+      compileContract(
+        api(
+          HttpApiEndpoint.get("text", "/text", {
+            success: Schema.String.pipe(HttpApiSchema.asText({ contentType: "text/markdown; charset=utf-8" })),
+          }),
+        ),
+      ),
+    )
+    await using emitted = await emittedModule(output)
+    const client = emitted.module.OpenCode.make({
+      baseUrl: "https://example.com",
+      fetch: async () => new Response("# Hello\n", { headers: { "content-type": "text/markdown; charset=utf-8" } }),
+    })
+
+    expect(await client.session.text()).toBe("# Hello\n")
   })
 
   test("serializes flattened query, header, and JSON payload inputs", async () => {

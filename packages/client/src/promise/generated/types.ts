@@ -293,6 +293,10 @@ export type ReferenceGitSource = { type: "git"; repository: string; branch?: str
 
 export type LabelInfo = { id: string; name: string; tags: Array<string> }
 
+export type InitiativeID = string
+
+export type InitiativeDocInfo = { name: string; timeUpdated: number }
+
 export type VcsBranch = { current?: string; default?: string }
 
 export type VcsBase = { name: string; ref: string; source: "reflog" | "default" }
@@ -860,6 +864,14 @@ export type FormMultiselectField1 = {
 }
 
 export type FormAnswer1 = { [x: string]: FormValue1 }
+
+export type InitiativeInfo = {
+  id: InitiativeID
+  name: string
+  status: "active" | "done" | "archived"
+  timeCreated: number
+  timeUpdated: number
+}
 
 export type VcsInfo = { provider?: string; branch: VcsBranch }
 
@@ -2947,6 +2959,14 @@ export type WorktreeError = {
 }
 export const isWorktreeError = (value: unknown): value is WorktreeError =>
   typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "WorktreeError"
+
+export type InitiativeNotFoundError = {
+  readonly _tag: "InitiativeNotFoundError"
+  readonly initiativeID: string
+  readonly message: string
+}
+export const isInitiativeNotFoundError = (value: unknown): value is InitiativeNotFoundError =>
+  typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "InitiativeNotFoundError"
 
 export type VcsInitNotSupportedError = {
   readonly _tag: "VcsInitNotSupportedError"
@@ -5967,6 +5987,30 @@ export type LabelCreateOutput = LabelInfo
 export type LabelRemoveInput = { readonly labelID: { readonly labelID: string }["labelID"] }
 
 export type LabelRemoveOutput = boolean
+
+export type InitiativeListOutput = Array<InitiativeInfo>
+
+export type InitiativeCreateInput = {
+  readonly name: { readonly name: string; readonly status?: "active" | "done" | "archived" }["name"]
+  readonly status?: { readonly name: string; readonly status?: "active" | "done" | "archived" }["status"]
+}
+
+export type InitiativeCreateOutput = InitiativeInfo
+
+export type InitiativeRemoveInput = { readonly initiativeID: { readonly initiativeID: string }["initiativeID"] }
+
+export type InitiativeRemoveOutput = boolean
+
+export type InitiativeDocListInput = { readonly initiativeID: { readonly initiativeID: string }["initiativeID"] }
+
+export type InitiativeDocListOutput = Array<InitiativeDocInfo>
+
+export type InitiativeDocReadInput = {
+  readonly initiativeID: { readonly initiativeID: string; readonly name: string }["initiativeID"]
+  readonly name: { readonly initiativeID: string; readonly name: string }["name"]
+}
+
+export type InitiativeDocReadOutput = string
 
 export type VcsInitInput = {
   readonly location?: {
