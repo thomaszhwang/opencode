@@ -9,7 +9,7 @@ import {
 import { createData } from "@opencode/client/solid"
 import { createRoot } from "solid-js"
 import type { OpenCodeEventStream } from "@/runtime/server/client"
-import { createSessionMetadata } from "./session-metadata"
+import { createSessionMetadata, resolveCurrentSession } from "./session-metadata"
 
 // The toast module pulls in @opencode/ui's JSX artwork, which the unit runner
 // cannot load; record the calls instead of rendering them.
@@ -98,6 +98,26 @@ function makeHarness(initial: SessionInfo[]) {
 }
 
 const translate = (key: string) => key
+
+describe("resolveCurrentSession", () => {
+  const at = (updated: number, tags?: string[]) => {
+    const base = session("ses_1", tags ? { tags } : undefined)
+    return { ...base, time: { ...base.time, updated } }
+  }
+
+  test("prefers the live record once it is strictly newer", () => {
+    expect(resolveCurrentSession(at(3, ["live"]), at(2, ["passed"])).metadata).toEqual({ tags: ["live"] })
+  })
+
+  test("keeps the passed record when the live one is older or from the same write", () => {
+    expect(resolveCurrentSession(at(2, ["live"]), at(3, ["passed"])).metadata).toEqual({ tags: ["passed"] })
+    expect(resolveCurrentSession(at(3, ["live"]), at(3, ["passed"])).metadata).toEqual({ tags: ["passed"] })
+  })
+
+  test("falls back to the passed record while the session is not synced", () => {
+    expect(resolveCurrentSession(undefined, at(2, ["passed"])).metadata).toEqual({ tags: ["passed"] })
+  })
+})
 
 describe("session metadata sync", () => {
   test("an external PATCH updates the synced session record without a reload", async () => {

@@ -432,6 +432,11 @@ export const dict = {
   "toast.session.copyID.failed.description": "An error occurred while copying the session ID",
   "toast.session.tags.updateFailed.title": "Failed to update session tags",
   "toast.session.note.updateFailed.title": "Failed to update session note",
+  "dialog.session.tags.title": "Edit tags",
+  "dialog.session.tags.placeholder": "Add a tag",
+  "dialog.session.tags.removeTag": "Remove tag {{tag}}",
+  "dialog.session.note.title": "Edit note",
+  "dialog.session.note.placeholder": "Add a note",
   "toast.project.copyID.failed.title": "Failed to copy project ID",
   "toast.project.copyID.failed.description": "An error occurred while copying the project ID",
 
