@@ -1,8 +1,8 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "f1f14616-b6a1-483d-87b0-d5b7a9132580",
-  "prevIds": ["76109fbf-f324-4af0-934c-3ae695275099"],
+  "id": "f193b40e-5c51-43f8-a385-ed4358cdd6fc",
+  "prevIds": ["f1f14616-b6a1-483d-87b0-d5b7a9132580"],
   "ddl": [
     {
       "name": "account_state",
@@ -30,6 +30,10 @@
     },
     {
       "name": "kv",
+      "entityType": "tables"
+    },
+    {
+      "name": "_fork_label",
       "entityType": "tables"
     },
     {
@@ -497,6 +501,56 @@
       "name": "time_updated",
       "entityType": "columns",
       "table": "kv"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "_fork_label"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "_fork_label"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tags",
+      "entityType": "columns",
+      "table": "_fork_label"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "_fork_label"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "_fork_label"
     },
     {
       "type": "text",
@@ -1866,6 +1920,13 @@
       "nameExplicit": false,
       "name": "kv_pk",
       "table": "kv",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "_fork_label_pk",
+      "table": "_fork_label",
       "entityType": "pks"
     },
     {

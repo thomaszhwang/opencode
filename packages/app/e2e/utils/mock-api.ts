@@ -147,6 +147,21 @@ const Group = HttpApiGroup.make("mock")
   .add(HttpApiEndpoint.get("command", "/api/command", { success: Json }))
   .add(HttpApiEndpoint.get("skill", "/api/skill", { success: Json }))
   .add(HttpApiEndpoint.get("plugin", "/api/plugin", { success: Json }))
+  .add(HttpApiEndpoint.get("label", "/api/label", { success: Json }))
+  .add(
+    HttpApiEndpoint.post("labelCreate", "/api/label", {
+      payload: JsonPayload,
+      success: Json,
+      error: Unsupported,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.delete("labelRemove", "/api/label/:labelID", {
+      params: { labelID: Schema.String },
+      success: Json,
+      error: Unsupported,
+    }),
+  )
   .add(HttpApiEndpoint.get("mcp", "/api/mcp", { success: Json }))
   .add(
     HttpApiEndpoint.post("mcpConnect", "/api/experimental/mcp/:server/connect", {

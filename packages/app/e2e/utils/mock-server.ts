@@ -111,6 +111,10 @@ export interface MockServerConfig {
   onIntegrationOAuthStatus?: (attemptID: string) => "pending" | "complete"
   plugins?: Resolvable<unknown[]>
   skills?: Resolvable<unknown[]>
+  // Session labels served by `/api/label`; without the hooks, label mutations answer 501 MockUnsupported.
+  labels?: Resolvable<unknown[]>
+  onLabelCreate?: (body: unknown) => unknown
+  onLabelRemove?: (labelID: string) => void
   // Replaces the `/api/worktree` inventory, which defaults to the directory plus project sandboxes.
   worktrees?: Resolvable<unknown[]>
   // Without them, creating or removing a worktree answers 501 MockUnsupported. `onWorktreeCreate` may hold the request
@@ -940,6 +944,22 @@ function mockHandlers(
           })),
         skill: () => Effect.sync(() => ({ location: location(config), data: resolve(config.skills ?? []) })),
         plugin: () => Effect.sync(() => ({ location: location(config), data: resolve(config.plugins ?? []) })),
+        // `label.list` is not Location.response-backed, so the wire body is a bare array (like worktreeList).
+        label: () => Effect.sync(() => resolve(config.labels ?? [])),
+        labelCreate: (ctx) => {
+          const create = config.onLabelCreate
+
+          if (!create) return unsupported("create labels", "onLabelCreate")
+
+          return Effect.sync(() => create(ctx.payload))
+        },
+        labelRemove: (ctx) => {
+          const remove = config.onLabelRemove
+
+          if (!remove) return unsupported("remove labels", "onLabelRemove")
+
+          return Effect.sync(() => remove(ctx.params.labelID)).pipe(Effect.as(true))
+        },
         mcp: (ctx) =>
           Effect.sync(() => {
             const directory = requestDirectory(config, ctx.request)
