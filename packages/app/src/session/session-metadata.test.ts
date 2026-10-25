@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, mock, test } from "bun:test"
 import {
   OpenCode,
   type OpenCodeEvent,
@@ -10,6 +10,13 @@ import { createData } from "@opencode/client/solid"
 import { createRoot } from "solid-js"
 import type { OpenCodeEventStream } from "@/runtime/server/client"
 import { createSessionMetadata } from "./session-metadata"
+
+// The toast module pulls in @opencode/ui's JSX artwork, which the unit runner
+// cannot load; record the calls instead of rendering them.
+const toasts: { variant?: string; title?: string; description?: string }[] = []
+mock.module("@/shell/notifications/toast", () => ({
+  showToast: (options: { variant?: string; title?: string; description?: string }) => toasts.push(options),
+}))
 
 function session(id: string, metadata?: SessionMetadata): SessionInfo {
   return {
@@ -36,6 +43,7 @@ function metadataEvent(sessionID: string, metadata: SessionMetadata): SessionMet
 function makeHarness(initial: SessionInfo[]) {
   const sessions = new Map(initial.map((item) => [item.id, item]))
   const patches: Record<string, unknown>[] = []
+  const control = { failPatches: false }
 
   const api = OpenCode.make({
     baseUrl: "http://localhost:3000",
@@ -45,6 +53,7 @@ function makeHarness(initial: SessionInfo[]) {
         const id = new URL(request.url).pathname.split("/").pop()!
 
         if (request.method === "PATCH") {
+          if (control.failPatches) return new Response("boom", { status: 500 })
           const body = (await request.json()) as Record<string, unknown>
           const current = sessions.get(id)!
           sessions.set(id, { ...current, ...body } as SessionInfo)
@@ -76,6 +85,7 @@ function makeHarness(initial: SessionInfo[]) {
     event,
     patches,
     sessions,
+    control,
     emit: (value: OpenCodeEvent) => handlers.get(value.type)?.forEach((handler) => handler(value)),
     // createData consumes the wrapped { name, details } event form, like the
     // adapter in runtime.tsx; its own listener stays inert in these tests.
@@ -190,6 +200,33 @@ describe("session metadata writes", () => {
       await controller.note.setNote(existing, "hello")
 
       expect(harness.sessions.get(existing.id)?.metadata).toEqual({ tags: ["fleet", "done"], note: "hello" })
+      dispose()
+    })
+  })
+
+  test("a failed write resolves false and the session's chain keeps flowing", async () => {
+    const existing = session("ses_1", { tags: ["fleet"] })
+    const harness = makeHarness([existing])
+
+    await createRoot(async (dispose) => {
+      const data = createData({
+        api: () => harness.api,
+        directory: "/test",
+        event: harness.dataEvent,
+      })
+      const controller = createSessionMetadata({ api: harness.api, event: harness.event, data, translate })
+
+      harness.control.failPatches = true
+      const landed = await controller.tags.setTags(existing, () => ["done"])
+      harness.control.failPatches = false
+
+      expect(landed).toBe(false)
+      expect(toasts).toEqual([{ variant: "error", title: "toast.session.tags.updateFailed.title", description: expect.anything() }])
+      expect(harness.sessions.get(existing.id)?.metadata).toEqual({ tags: ["fleet"] })
+
+      const retried = await controller.tags.setTags(existing, () => ["done"])
+      expect(retried).toBe(true)
+      expect(harness.sessions.get(existing.id)?.metadata).toEqual({ tags: ["done"] })
       dispose()
     })
   })
