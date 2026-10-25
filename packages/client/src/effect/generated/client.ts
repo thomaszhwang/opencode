@@ -252,6 +252,11 @@ import type {
   WorktreeRemoveOutput,
   WorktreeRefreshInput,
   WorktreeRefreshOutput,
+  LabelListOutput,
+  LabelCreateInput,
+  LabelCreateOutput,
+  LabelRemoveInput,
+  LabelRemoveOutput,
   VcsInitInput,
   VcsInitOutput,
   VcsGetInput,
@@ -1572,6 +1577,27 @@ const adaptGroupWorktree = (raw: RawClient["server.worktree"]) => ({
   refresh: EndpointWorktreeRefresh(raw),
 })
 
+const EndpointLabelList = (raw: RawClient["server.label"]) => () =>
+  preserveEffect<LabelListOutput>()(raw["label.list"]({}).pipe(Effect.mapError(mapClientError)))
+
+const EndpointLabelCreate = (raw: RawClient["server.label"]) => (input: LabelCreateInput) =>
+  preserveEffect<LabelCreateOutput>()(
+    raw["label.create"]({ payload: { name: input["name"], tags: input["tags"] } }).pipe(
+      Effect.mapError(mapClientError),
+    ),
+  )
+
+const EndpointLabelRemove = (raw: RawClient["server.label"]) => (input: LabelRemoveInput) =>
+  preserveEffect<LabelRemoveOutput>()(
+    raw["label.remove"]({ params: { labelID: input["labelID"] } }).pipe(Effect.mapError(mapClientError)),
+  )
+
+const adaptGroupLabel = (raw: RawClient["server.label"]) => ({
+  list: EndpointLabelList(raw),
+  create: EndpointLabelCreate(raw),
+  remove: EndpointLabelRemove(raw),
+})
+
 const EndpointVcsInit = (raw: RawClient["server.vcs"]) => (input?: VcsInitInput) =>
   preserveEffect<VcsInitOutput>()(
     raw["vcs.init"]({ query: { location: input?.["location"], provider: input?.["provider"] } }).pipe(
@@ -1711,6 +1737,7 @@ const adaptClient = (raw: RawClient) => ({
   shell: adaptGroupShell(raw["server.shell"]),
   reference: adaptGroupReference(raw["server.reference"]),
   worktree: adaptGroupWorktree(raw["server.worktree"]),
+  label: adaptGroupLabel(raw["server.label"]),
   vcs: adaptGroupVcs(raw["server.vcs"]),
   debug: adaptGroupDebug(raw["server.debug"]),
   migration: adaptGroupMigration(raw["server.migration"]),

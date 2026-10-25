@@ -38,6 +38,7 @@ import type { OpenCodeEvent } from "@opencode/protocol/groups/event"
 import type { Pty } from "@opencode/schema/pty"
 import type { Reference } from "@opencode/schema/reference"
 import type { Worktree } from "@opencode/schema/worktree"
+import type { Label } from "@opencode/schema/label"
 import type { Vcs } from "@opencode/schema/vcs"
 import type { WebSearch } from "@opencode/schema/websearch"
 import type { UsageLimits } from "@opencode/schema/usage-limits"
@@ -2215,6 +2216,23 @@ export interface WorktreeApi<E = never> {
   readonly refresh: WorktreeRefreshOperation<E>
 }
 
+export type LabelListOutput = ReadonlyArray<Label.Info>
+export type LabelListOperation<E = never> = () => Effect.Effect<LabelListOutput, E>
+
+export type LabelCreateInput = { readonly name: string; readonly tags: ReadonlyArray<string> }
+export type LabelCreateOutput = Label.Info
+export type LabelCreateOperation<E = never> = (input: LabelCreateInput) => Effect.Effect<LabelCreateOutput, E>
+
+export type LabelRemoveInput = { readonly labelID: string }
+export type LabelRemoveOutput = boolean
+export type LabelRemoveOperation<E = never> = (input: LabelRemoveInput) => Effect.Effect<LabelRemoveOutput, E>
+
+export interface LabelApi<E = never> {
+  readonly list: LabelListOperation<E>
+  readonly create: LabelCreateOperation<E>
+  readonly remove: LabelRemoveOperation<E>
+}
+
 export type VcsInitInput = {
   readonly location?: { readonly directory?: string | undefined } | undefined
   readonly provider?: string | undefined
@@ -2383,6 +2401,7 @@ export interface AppApi<E = never> {
   readonly shell: ShellApi<E>
   readonly reference: ReferenceApi<E>
   readonly worktree: WorktreeApi<E>
+  readonly label: LabelApi<E>
   readonly vcs: VcsApi<E>
   readonly debug: DebugApi<E>
   readonly migration: MigrationApi<E>

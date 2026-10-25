@@ -21,6 +21,7 @@ import executionClaimsMigration from "@opencode/core/database/migration/20260811
 import sessionInboxMigration from "@opencode/core/database/migration/20260812181746_session_inbox"
 import sessionViewedStateMigration from "@opencode/core/database/migration/20260819222447_session_viewed_state"
 import azureCliCredentialMigration from "@opencode/core/database/migration/20261007190000_azure_cli_external_credential"
+import forkLabelMigration from "@opencode/core/database/migration/20261025193403_fork_label"
 import { Global } from "@opencode/util/global"
 
 const run = <A, E>(
@@ -427,6 +428,49 @@ describe("DatabaseMigration", () => {
           { directory: "/strategy", strategy: "git" },
         ])
         expect(yield* db.get(sql`SELECT count(*) AS count FROM project_directory`)).toEqual({ count: 4 })
+      }),
+    )
+  })
+
+  test("copies fork v1 label rows into _fork_label and drops the old table", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+        yield* db.run(sql`
+          CREATE TABLE label (
+            id text PRIMARY KEY,
+            name text NOT NULL,
+            tags text NOT NULL,
+            time_created integer NOT NULL,
+            time_updated integer NOT NULL
+          )
+        `)
+        yield* db.run(sql`
+          INSERT INTO label (id, name, tags, time_created, time_updated)
+          VALUES ('lab_one', 'Needs review', '["important","urgent"]', 1, 2), ('lab_two', 'Follow up', '["done"]', 3, 4)
+        `)
+
+        yield* DatabaseMigration.applyOnly(db, [forkLabelMigration])
+        yield* DatabaseMigration.applyOnly(db, [forkLabelMigration])
+
+        expect(yield* db.all(sql`SELECT id, name, tags, time_created, time_updated FROM _fork_label ORDER BY id`)).toEqual(
+          [
+            { id: "lab_one", name: "Needs review", tags: '["important","urgent"]', time_created: 1, time_updated: 2 },
+            { id: "lab_two", name: "Follow up", tags: '["done"]', time_created: 3, time_updated: 4 },
+          ],
+        )
+        expect(yield* db.get(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'label'`)).toBeUndefined()
+      }),
+    )
+  })
+
+  test("creates an empty _fork_label when no v1 label table exists", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+        yield* DatabaseMigration.applyOnly(db, [forkLabelMigration])
+
+        expect(yield* db.all(sql`SELECT id FROM _fork_label`)).toEqual([])
       }),
     )
   })

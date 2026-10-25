@@ -250,6 +250,11 @@ import type {
   WorktreeRemoveOutput,
   WorktreeRefreshInput,
   WorktreeRefreshOutput,
+  LabelListOutput,
+  LabelCreateInput,
+  LabelCreateOutput,
+  LabelRemoveInput,
+  LabelRemoveOutput,
   VcsInitInput,
   VcsInitOutput,
   VcsGetInput,
@@ -2129,6 +2134,36 @@ export function make(options: ClientOptions) {
             successStatus: 204,
             declaredStatuses: [400, 401, 404],
             empty: true,
+          },
+          requestOptions,
+        ),
+    },
+    label: {
+      list: (requestOptions?: RequestOptions) =>
+        request<LabelListOutput>(
+          { method: "GET", path: `/api/label`, successStatus: 200, declaredStatuses: [400, 401], empty: false },
+          requestOptions,
+        ),
+      create: (input: LabelCreateInput, requestOptions?: RequestOptions) =>
+        request<LabelCreateOutput>(
+          {
+            method: "POST",
+            path: `/api/label`,
+            body: { name: input["name"], tags: input["tags"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      remove: (input: LabelRemoveInput, requestOptions?: RequestOptions) =>
+        request<LabelRemoveOutput>(
+          {
+            method: "DELETE",
+            path: `/api/label/${encodeURIComponent(input.labelID)}`,
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
           },
           requestOptions,
         ),

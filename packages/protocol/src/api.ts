@@ -35,6 +35,7 @@ import { WorktreeGroup } from "./groups/worktree.js"
 import { VcsGroup } from "./groups/vcs.js"
 import { MigrationGroup } from "./groups/migration.js"
 import { ConfigGroup } from "./groups/config.js"
+import { LabelGroup } from "./groups/label.js"
 
 type LocationGroups<LocationId extends HttpApiMiddleware.AnyId> =
   | HttpApiGroup.AddMiddleware<typeof AgentGroup, LocationId>
@@ -98,6 +99,7 @@ type ApiGroups<
   | typeof DebugGroup
   | typeof MigrationGroup
   | typeof WorktreeGroup
+  | typeof LabelGroup
   | typeof GenerateGroup
   | typeof VoiceGroup
   | typeof PersistentPtyGroup
@@ -191,6 +193,7 @@ const makeApiFromGroup = <
     .add(ShellGroup.middleware(locationMiddleware))
     .add(ReferenceGroup.middleware(locationMiddleware))
     .add(WorktreeGroup)
+    .add(LabelGroup)
     .add(VcsGroup.middleware(locationMiddleware))
     .add(DebugGroup)
     .add(MigrationGroup)
