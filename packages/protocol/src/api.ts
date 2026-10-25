@@ -32,6 +32,7 @@ import { makeMcpGroup } from "./groups/mcp.js"
 import { CredentialGroup } from "./groups/credential.js"
 import { ProjectGroup } from "./groups/project.js"
 import { WorktreeGroup } from "./groups/worktree.js"
+import { InitiativeGroup } from "./groups/initiative.js"
 import { VcsGroup } from "./groups/vcs.js"
 import { MigrationGroup } from "./groups/migration.js"
 import { ConfigGroup } from "./groups/config.js"
@@ -98,6 +99,7 @@ type ApiGroups<
   | typeof DebugGroup
   | typeof MigrationGroup
   | typeof WorktreeGroup
+  | typeof InitiativeGroup
   | typeof GenerateGroup
   | typeof VoiceGroup
   | typeof PersistentPtyGroup
@@ -191,6 +193,7 @@ const makeApiFromGroup = <
     .add(ShellGroup.middleware(locationMiddleware))
     .add(ReferenceGroup.middleware(locationMiddleware))
     .add(WorktreeGroup)
+    .add(InitiativeGroup)
     .add(VcsGroup.middleware(locationMiddleware))
     .add(DebugGroup)
     .add(MigrationGroup)

@@ -111,6 +111,8 @@ export interface MockServerConfig {
   onIntegrationOAuthStatus?: (attemptID: string) => "pending" | "complete"
   plugins?: Resolvable<unknown[]>
   skills?: Resolvable<unknown[]>
+  // Initiatives served by `/api/initiative`.
+  initiatives?: Resolvable<unknown[]>
   // Replaces the `/api/worktree` inventory, which defaults to the directory plus project sandboxes.
   worktrees?: Resolvable<unknown[]>
   // Without them, creating or removing a worktree answers 501 MockUnsupported. `onWorktreeCreate` may hold the request
@@ -939,6 +941,7 @@ function mockHandlers(
             data: resolve(config.commands ?? []),
           })),
         skill: () => Effect.sync(() => ({ location: location(config), data: resolve(config.skills ?? []) })),
+        initiative: () => Effect.sync(() => resolve(config.initiatives ?? [])),
         plugin: () => Effect.sync(() => ({ location: location(config), data: resolve(config.plugins ?? []) })),
         mcp: (ctx) =>
           Effect.sync(() => {

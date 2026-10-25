@@ -38,6 +38,7 @@ import type { OpenCodeEvent } from "@opencode/protocol/groups/event"
 import type { Pty } from "@opencode/schema/pty"
 import type { Reference } from "@opencode/schema/reference"
 import type { Worktree } from "@opencode/schema/worktree"
+import type { Initiative } from "@opencode/schema/initiative"
 import type { Vcs } from "@opencode/schema/vcs"
 import type { WebSearch } from "@opencode/schema/websearch"
 import type { UsageLimits } from "@opencode/schema/usage-limits"
@@ -2215,6 +2216,43 @@ export interface WorktreeApi<E = never> {
   readonly refresh: WorktreeRefreshOperation<E>
 }
 
+export type InitiativeListOutput = ReadonlyArray<Initiative.Info>
+export type InitiativeListOperation<E = never> = () => Effect.Effect<InitiativeListOutput, E>
+
+export type InitiativeCreateInput = {
+  readonly name: string
+  readonly status?: "active" | "done" | "archived" | undefined
+}
+export type InitiativeCreateOutput = Initiative.Info
+export type InitiativeCreateOperation<E = never> = (
+  input: InitiativeCreateInput,
+) => Effect.Effect<InitiativeCreateOutput, E>
+
+export type InitiativeRemoveInput = { readonly initiativeID: Initiative.ID }
+export type InitiativeRemoveOutput = boolean
+export type InitiativeRemoveOperation<E = never> = (
+  input: InitiativeRemoveInput,
+) => Effect.Effect<InitiativeRemoveOutput, E>
+
+export type InitiativeDocListInput = { readonly initiativeID: Initiative.ID }
+export type InitiativeDocListOutput = ReadonlyArray<Initiative.DocInfo>
+export type InitiativeDocListOperation<E = never> = (
+  input: InitiativeDocListInput,
+) => Effect.Effect<InitiativeDocListOutput, E>
+
+export type InitiativeDocReadInput = { readonly initiativeID: Initiative.ID; readonly name: string }
+export type InitiativeDocReadOutput = string
+export type InitiativeDocReadOperation<E = never> = (
+  input: InitiativeDocReadInput,
+) => Effect.Effect<InitiativeDocReadOutput, E>
+
+export interface InitiativeApi<E = never> {
+  readonly list: InitiativeListOperation<E>
+  readonly create: InitiativeCreateOperation<E>
+  readonly remove: InitiativeRemoveOperation<E>
+  readonly doc: { readonly list: InitiativeDocListOperation<E>; readonly read: InitiativeDocReadOperation<E> }
+}
+
 export type VcsInitInput = {
   readonly location?: { readonly directory?: string | undefined } | undefined
   readonly provider?: string | undefined
@@ -2383,6 +2421,7 @@ export interface AppApi<E = never> {
   readonly shell: ShellApi<E>
   readonly reference: ReferenceApi<E>
   readonly worktree: WorktreeApi<E>
+  readonly initiative: InitiativeApi<E>
   readonly vcs: VcsApi<E>
   readonly debug: DebugApi<E>
   readonly migration: MigrationApi<E>

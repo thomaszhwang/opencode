@@ -1,8 +1,8 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "f1f14616-b6a1-483d-87b0-d5b7a9132580",
-  "prevIds": ["76109fbf-f324-4af0-934c-3ae695275099"],
+  "id": "5e173785-ca91-47a1-b981-de37f039e5f2",
+  "prevIds": ["f1f14616-b6a1-483d-87b0-d5b7a9132580"],
   "ddl": [
     {
       "name": "account_state",
@@ -26,6 +26,10 @@
     },
     {
       "name": "event",
+      "entityType": "tables"
+    },
+    {
+      "name": "_fork_initiative",
       "entityType": "tables"
     },
     {
@@ -457,6 +461,56 @@
       "name": "data",
       "entityType": "columns",
       "table": "event"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "_fork_initiative"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "_fork_initiative"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "_fork_initiative"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_created",
+      "entityType": "columns",
+      "table": "_fork_initiative"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "time_updated",
+      "entityType": "columns",
+      "table": "_fork_initiative"
     },
     {
       "type": "text",
@@ -1859,6 +1913,13 @@
       "nameExplicit": false,
       "name": "event_pk",
       "table": "event",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["id"],
+      "nameExplicit": false,
+      "name": "_fork_initiative_pk",
+      "table": "_fork_initiative",
       "entityType": "pks"
     },
     {

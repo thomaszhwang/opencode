@@ -118,6 +118,15 @@ export class IntegrationMethodNotFoundError extends Schema.TaggedError<Integrati
   { httpApiStatus: 404 },
 ) {}
 
+export class InitiativeNotFoundError extends Schema.TaggedError<InitiativeNotFoundError>()(
+  "InitiativeNotFoundError",
+  {
+    initiativeID: Schema.String,
+    message: Schema.String,
+  },
+  { httpApiStatus: 404 },
+) {}
+
 export class ProjectNotFoundError extends Schema.TaggedError<ProjectNotFoundError>()(
   "ProjectNotFoundError",
   {

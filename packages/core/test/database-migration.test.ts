@@ -15,6 +15,7 @@ import { Database } from "@opencode/core/database/database"
 import { tmpdir } from "./fixture/tmpdir"
 import legacyCredentialsMigration from "@opencode/core/database/migration/20260805200742_import_legacy_credentials"
 import worktreeMigration from "@opencode/core/database/migration/20260812213948_worktree"
+import forkInitiativeMigration from "@opencode/core/database/migration/20261025193304_fork_initiative"
 import previousV2Migration from "@opencode/core/database/migration/20260804233008_loose_psylocke"
 import workspaceMigration from "@opencode/core/database/migration/20260808023530_workspace_domain"
 import executionClaimsMigration from "@opencode/core/database/migration/20260811161259_execution_claim_attempts"
@@ -427,6 +428,48 @@ describe("DatabaseMigration", () => {
           { directory: "/strategy", strategy: "git" },
         ])
         expect(yield* db.get(sql`SELECT count(*) AS count FROM project_directory`)).toEqual({ count: 4 })
+      }),
+    )
+  })
+
+  test("copies fork v1 initiative rows into _fork_initiative and drops the old table", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+        yield* db.run(sql`
+          CREATE TABLE initiative (
+            id text PRIMARY KEY,
+            name text NOT NULL,
+            status text NOT NULL,
+            time_created integer NOT NULL,
+            time_updated integer NOT NULL
+          )
+        `)
+        yield* db.run(
+          sql`INSERT INTO initiative (id, name, status, time_created, time_updated) VALUES ('ini_one', 'PlanetScale', 'active', 1, 2), ('ini_two', 'Billing', 'done', 3, 4)`,
+        )
+
+        yield* DatabaseMigration.applyOnly(db, [forkInitiativeMigration])
+
+        expect(yield* db.all(sql`SELECT * FROM _fork_initiative ORDER BY time_created`)).toEqual([
+          { id: "ini_one", name: "PlanetScale", status: "active", time_created: 1, time_updated: 2 },
+          { id: "ini_two", name: "Billing", status: "done", time_created: 3, time_updated: 4 },
+        ])
+        expect(
+          yield* db.all<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'initiative'`),
+        ).toEqual([])
+      }),
+    )
+  })
+
+  test("creates _fork_initiative without a legacy table", async () => {
+    await run(
+      Effect.gen(function* () {
+        const db = yield* makeDb
+
+        yield* DatabaseMigration.applyOnly(db, [forkInitiativeMigration])
+
+        expect(yield* db.all(sql`SELECT * FROM _fork_initiative`)).toEqual([])
       }),
     )
   })

@@ -252,6 +252,15 @@ import type {
   WorktreeRemoveOutput,
   WorktreeRefreshInput,
   WorktreeRefreshOutput,
+  InitiativeListOutput,
+  InitiativeCreateInput,
+  InitiativeCreateOutput,
+  InitiativeRemoveInput,
+  InitiativeRemoveOutput,
+  InitiativeDocListInput,
+  InitiativeDocListOutput,
+  InitiativeDocReadInput,
+  InitiativeDocReadOutput,
   VcsInitInput,
   VcsInitOutput,
   VcsGetInput,
@@ -1572,6 +1581,42 @@ const adaptGroupWorktree = (raw: RawClient["server.worktree"]) => ({
   refresh: EndpointWorktreeRefresh(raw),
 })
 
+const EndpointInitiativeList = (raw: RawClient["server.initiative"]) => () =>
+  preserveEffect<InitiativeListOutput>()(raw["initiative.list"]({}).pipe(Effect.mapError(mapClientError)))
+
+const EndpointInitiativeCreate = (raw: RawClient["server.initiative"]) => (input: InitiativeCreateInput) =>
+  preserveEffect<InitiativeCreateOutput>()(
+    raw["initiative.create"]({ payload: { name: input["name"], status: input["status"] } }).pipe(
+      Effect.mapError(mapClientError),
+    ),
+  )
+
+const EndpointInitiativeRemove = (raw: RawClient["server.initiative"]) => (input: InitiativeRemoveInput) =>
+  preserveEffect<InitiativeRemoveOutput>()(
+    raw["initiative.remove"]({ params: { initiativeID: input["initiativeID"] } }).pipe(Effect.mapError(mapClientError)),
+  )
+
+const EndpointInitiativeDocList = (raw: RawClient["server.initiative"]) => (input: InitiativeDocListInput) =>
+  preserveEffect<InitiativeDocListOutput>()(
+    raw["initiative.doc.list"]({ params: { initiativeID: input["initiativeID"] } }).pipe(
+      Effect.mapError(mapClientError),
+    ),
+  )
+
+const EndpointInitiativeDocRead = (raw: RawClient["server.initiative"]) => (input: InitiativeDocReadInput) =>
+  preserveEffect<InitiativeDocReadOutput>()(
+    raw["initiative.doc.read"]({ params: { initiativeID: input["initiativeID"], name: input["name"] } }).pipe(
+      Effect.mapError(mapClientError),
+    ),
+  )
+
+const adaptGroupInitiative = (raw: RawClient["server.initiative"]) => ({
+  list: EndpointInitiativeList(raw),
+  create: EndpointInitiativeCreate(raw),
+  remove: EndpointInitiativeRemove(raw),
+  doc: { list: EndpointInitiativeDocList(raw), read: EndpointInitiativeDocRead(raw) },
+})
+
 const EndpointVcsInit = (raw: RawClient["server.vcs"]) => (input?: VcsInitInput) =>
   preserveEffect<VcsInitOutput>()(
     raw["vcs.init"]({ query: { location: input?.["location"], provider: input?.["provider"] } }).pipe(
@@ -1711,6 +1756,7 @@ const adaptClient = (raw: RawClient) => ({
   shell: adaptGroupShell(raw["server.shell"]),
   reference: adaptGroupReference(raw["server.reference"]),
   worktree: adaptGroupWorktree(raw["server.worktree"]),
+  initiative: adaptGroupInitiative(raw["server.initiative"]),
   vcs: adaptGroupVcs(raw["server.vcs"]),
   debug: adaptGroupDebug(raw["server.debug"]),
   migration: adaptGroupMigration(raw["server.migration"]),

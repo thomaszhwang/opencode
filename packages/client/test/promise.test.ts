@@ -31,6 +31,7 @@ test("exposes every standard HTTP API group", () => {
     "shell",
     "reference",
     "worktree",
+    "initiative",
     "vcs",
     "debug",
     "migration",
@@ -58,6 +59,8 @@ test("exposes every standard HTTP API group", () => {
   expect(Object.keys(client.shell)).toEqual(["list", "create", "get", "output", "remove"])
   expect(Object.keys(client.project)).toEqual(["list", "update"])
   expect(Object.keys(client.worktree)).toEqual(["list", "create", "remove", "refresh"])
+  expect(Object.keys(client.initiative)).toEqual(["list", "create", "remove", "doc"])
+  expect(Object.keys(client.initiative.doc)).toEqual(["list", "read"])
 })
 
 test("config.get returns ordered config entries for a location", async () => {
