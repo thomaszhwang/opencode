@@ -10,6 +10,14 @@ test.each(["settings", "connect"] as const)("%s has its own layout route", (type
   expect(currentRoute(`/${type}`, "")).toEqual({ type })
 })
 
+test("an initiative space has its own layout route", () => {
+  expect(currentRoute("/server/aHR0cHM6Ly9leGFtcGxlLmNvbTo0MDk2/initiative/ini-1", "")).toEqual({
+    type: "initiative",
+    initiativeId: "ini-1",
+    server: ServerConnection.Key.make("https://example.com:4096"),
+  })
+})
+
 describe("layout persistence", () => {
   const schema = Persistence.withInitial(layoutPersistence, initialLayout(ServerConnection.Key.make("local")))
   const decode = Schema.decodeUnknownSync(schema)
