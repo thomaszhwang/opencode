@@ -10,6 +10,14 @@ import { sessionNoteMerge } from "./session-note"
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string
 
+// A dialog opened with a session snapshot must not go stale: prefer the live
+// synced record once it is strictly newer (it advances on every write,
+// including external PATCHes delivered by session.metadata.updated).
+export function resolveCurrentSession(live: SessionInfo | undefined, passed: SessionInfo): SessionInfo {
+  if (live && live.time.updated > passed.time.updated) return live
+  return passed
+}
+
 // Session tags and notes live in the session's server-side metadata record.
 export function createSessionMetadata(input: {
   api: ServerApi

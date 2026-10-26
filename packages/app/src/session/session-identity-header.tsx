@@ -26,6 +26,7 @@ import { isProjectDirectory, isWorkspaceDirectory } from "@/workspaces/paths"
 import { sessionHref } from "@/shell/routes/session"
 import { showToast } from "@/shell/notifications/toast"
 import { sessionTitle } from "./title"
+import { SessionMetadataControls } from "./header/session-metadata-controls"
 import { SessionWorkingIndicator } from "./header/session-working-indicator"
 import "./session-identity-header.css"
 
@@ -411,6 +412,7 @@ export function SessionIdentityHeader(props: ParentProps<{ sessionID: string; se
                   </h1>
                 )}
               </Show>
+              <SessionMetadataControls sessionID={props.sessionID} session={props.session} />
               <Show when={!parentID()}>{props.children}</Show>
             </div>
           </div>

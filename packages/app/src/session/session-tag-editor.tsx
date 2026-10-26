@@ -2,6 +2,7 @@ import { Icon } from "@opencode/ui/icon"
 import { TextInput } from "@opencode/ui/text-input"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import { filterTagSuggestions } from "@/session/session-tags"
 
 export function SessionTagEditor(props: {
   tags: string[]
@@ -14,14 +15,9 @@ export function SessionTagEditor(props: {
   const language = useLanguage()
   const [value, setValue] = createSignal("")
 
-  const suggestions = createMemo(() => {
-    const query = value().trim().toLowerCase()
-    const existing = new Set(props.tags.map((tag) => tag.toLowerCase()))
-    return props.suggestions
-      .filter((tag) => !existing.has(tag.toLowerCase()))
-      .filter((tag) => !query || tag.toLowerCase().includes(query))
-      .slice(0, 6)
-  })
+  const suggestions = createMemo(() =>
+    filterTagSuggestions({ tags: props.tags, suggestions: props.suggestions, query: value() }),
+  )
 
   const submit = () => {
     const tag = value().trim()

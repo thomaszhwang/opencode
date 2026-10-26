@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { SessionInfo } from "@opencode/client/promise"
 import {
+  filterTagSuggestions,
   isInitiativeMember,
   normalizeSessionTags,
   sessionMatchesLabel,
@@ -60,6 +61,29 @@ describe("toggleSessionTag", () => {
 
   test("toggling twice from empty returns to empty", () => {
     expect(toggleSessionTag(toggleSessionTag([], "done"), "done")).toEqual([])
+  })
+})
+
+describe("filterTagSuggestions", () => {
+  test("excludes tags the session already has, case-insensitively", () => {
+    expect(
+      filterTagSuggestions({ tags: ["Fleet", "done"], suggestions: ["fleet", "DONE", "incident"], query: "" }),
+    ).toEqual(["incident"])
+  })
+
+  test("narrows by the trimmed query, case-insensitively", () => {
+    expect(
+      filterTagSuggestions({ tags: [], suggestions: ["fleet plans", "incident", "Fleet Ops"], query: " fleet " }),
+    ).toEqual(["fleet plans", "Fleet Ops"])
+  })
+
+  test("an empty query keeps every unused tag", () => {
+    expect(filterTagSuggestions({ tags: ["fleet"], suggestions: ["incident"], query: "   " })).toEqual(["incident"])
+  })
+
+  test("caps the row at six suggestions", () => {
+    const suggestions = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    expect(filterTagSuggestions({ tags: [], suggestions, query: "" })).toEqual(["a", "b", "c", "d", "e", "f"])
   })
 })
 

@@ -7,7 +7,7 @@ import type { SessionInfo } from "@opencode/client/promise"
 import { createSignal, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { hasNote, sessionNote } from "@/session/session-note"
-import type { SessionMetadataController } from "@/session/session-metadata"
+import { resolveCurrentSession, type SessionMetadataController } from "@/session/session-metadata"
 import { sessionTitle } from "@/session/title"
 
 export function DialogSessionNote(props: { session: SessionInfo; metadata: SessionMetadataController }) {
@@ -15,12 +15,7 @@ export function DialogSessionNote(props: { session: SessionInfo; metadata: Sessi
   const dialog = useDialog()
   const notes = props.metadata.note
 
-  // Prefer the live synced session once it is strictly newer than the passed
-  // one (it updates after writes via SSE); otherwise trust the passed session.
-  const current = () => {
-    const live = notes.session(props.session.id)
-    return live && live.time.updated > props.session.time.updated ? live : props.session
-  }
+  const current = () => resolveCurrentSession(notes.session(props.session.id), props.session)
   const [draft, setDraft] = createSignal(sessionNote(current()))
 
   const save = async (text: string) => {

@@ -28,6 +28,16 @@ export function toggleSessionTag(tags: string[], tag: string): string[] {
   return normalizeSessionTags([...tags, key])
 }
 
+// Suggestions cap at six so the editor's row stays one line.
+export function filterTagSuggestions(input: { tags: string[]; suggestions: string[]; query: string }): string[] {
+  const query = input.query.trim().toLowerCase()
+  const existing = new Set(input.tags.map((tag) => tag.toLowerCase()))
+  return input.suggestions
+    .filter((tag) => !existing.has(tag.toLowerCase()))
+    .filter((tag) => !query || tag.toLowerCase().includes(query))
+    .slice(0, 6)
+}
+
 // Initiative membership is the `Initiative:<Name>` tag, matched case-insensitively.
 export function isInitiativeMember(session: SessionInfo, name: string) {
   const target = `initiative:${name.toLowerCase()}`

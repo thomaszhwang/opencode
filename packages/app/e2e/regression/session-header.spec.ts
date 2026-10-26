@@ -46,18 +46,38 @@ for (const direction of ["ltr", "rtl"] as const) {
               control.boundingBox(),
             ),
           )
+          // The tag and note actions sit between the title and the options menu; while the title
+          // edits they are detached, and boundingBox would wait for them instead of returning null.
+          const [tagsEdit, note] = editing
+            ? [null, null]
+            : await Promise.all(
+                [
+                  header.locator('[data-slot="session-title-tags-edit"]'),
+                  header.locator('[data-slot="session-title-note"]'),
+                ].map((control) => control.boundingBox()),
+              )
 
           if (!icon || !title || !menu || !sidebar || !summary || !titleBounds) return false
 
           if (Math.abs(title.y - titleBounds.y) > 0.5 || Math.abs(title.height - titleBounds.height) > 0.5) return false
 
+          if (!editing && (!tagsEdit || !note)) return false
+          const chain = editing ? [title, menu] : [title, tagsEdit!, note!, menu]
+          const gap = chain
+            .slice(1)
+            .every((box, index) =>
+              direction === "ltr"
+                ? Math.abs(box.x - chain[index]!.x - chain[index]!.width - 2) <= 0.5
+                : Math.abs(chain[index]!.x - box.x - box.width - 2) <= 0.5,
+            )
+
           return direction === "ltr"
             ? Math.abs(title.x - icon.x - icon.width - 2) <= 0.5 &&
-                Math.abs(menu.x - title.x - title.width - 2) <= 0.5 &&
+                gap &&
                 menu.x + menu.width <= summary.x &&
                 summary.x + summary.width <= sidebar.x
             : Math.abs(icon.x - title.x - title.width - 2) <= 0.5 &&
-                Math.abs(title.x - menu.x - menu.width - 2) <= 0.5 &&
+                gap &&
                 sidebar.x + sidebar.width <= summary.x &&
                 summary.x + summary.width <= menu.x
         })
@@ -137,6 +157,57 @@ for (const direction of ["ltr", "rtl"] as const) {
     await expect(mcp).toBeHidden()
   })
 }
+
+test.describe("tags and note", () => {
+  const tagged = {
+    id: "ses_tagged",
+    title: "Tagged session",
+    metadata: { tags: ["fleet", "done"], note: "remember the deploy" },
+  }
+  const plain = { id: "ses_plain", title: "Plain session" }
+
+  test("shows tags and note on first open and same-run reopen, and repaints on an editor write", async ({ page }) => {
+    await openSession(page, { name: "Header metadata", sessions: [tagged, plain], sessionID: tagged.id })
+    const header = page.locator("[data-session-title]")
+    const pills = header.locator('[data-slot="session-title-tags"]')
+
+    // First open: the synced record carries metadata, so the pills and the lit note action render.
+    await expect(pills).toBeVisible()
+    await expect(pills.locator("span")).toHaveText(["fleet", "done"])
+
+    // The dialogs open on the same record.
+    await pills.click()
+    const tagsDialog = page.getByRole("dialog", { name: "Edit tags", exact: true })
+    await expect(tagsDialog.locator('[data-component="session-tag"]')).toHaveText(["fleet", "done"])
+    await page.keyboard.press("Escape")
+    await expect(tagsDialog).toHaveCount(0)
+
+    await header.locator('[data-slot="session-title-note"]').click()
+    const noteDialog = page.getByRole("dialog", { name: "Edit note", exact: true })
+    await expect(noteDialog.getByRole("textbox")).toHaveValue("remember the deploy")
+    await page.keyboard.press("Escape")
+    await expect(noteDialog).toHaveCount(0)
+
+    // An editor write round-trips without a reload: the mock applies the PATCH
+    // and publishes session.metadata.updated, and the header repaints.
+    await header.locator('[data-slot="session-title-tags-edit"]').click()
+    const editor = page.getByRole("dialog", { name: "Edit tags", exact: true }).getByRole("textbox")
+    await editor.fill("urgent")
+    await editor.press("Enter")
+    await expect(pills.locator("span")).toHaveText(["fleet", "done", "urgent"])
+    await page.keyboard.press("Escape")
+
+    // Same-run reopen: the sync cache serves the stored record without a refetch.
+    await page.locator(`[data-slot="titlebar-tabs"] a[href="${sessionHref(plain.id)}"]`).click()
+    await expectSessionTitle(page, plain.title)
+    await expect(header.locator('[data-slot="session-title-tags"]')).toHaveCount(0)
+    await expect(header.locator('[data-slot="session-title-tags-edit"]')).toBeVisible()
+
+    await page.locator(`[data-slot="titlebar-tabs"] a[href="${sessionHref(tagged.id)}"]`).click()
+    await expectSessionTitle(page, tagged.title)
+    await expect(pills.locator("span")).toHaveText(["fleet", "done", "urgent"])
+  })
+})
 
 test.describe("rename", () => {
   const heading = (page: Page, name: string) => page.getByRole("heading", { name, exact: true })
