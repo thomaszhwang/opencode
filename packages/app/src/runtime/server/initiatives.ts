@@ -28,6 +28,8 @@ export function createServerInitiatives(input: { api: ServerApi; connected: () =
 
   return {
     list: () => (list.state === "ready" || list.state === "refreshing" ? (list.latest ?? []) : []),
+    // False until the first fetch resolves, so a space page can wait before declaring an id unknown.
+    ready: () => list.state === "ready" || list.state === "refreshing",
     create: async (name: string) => {
       const clean = name.trim()
       if (!clean) return undefined

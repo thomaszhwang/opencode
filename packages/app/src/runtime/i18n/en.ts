@@ -556,6 +556,18 @@ export const dict = {
   "home.providerTip": "Connect to 75+ providers to use other models, including Claude, GPT, Gemini, etc",
   "home.workspaceTip": "Start next session in a new workspace to keep changes isolated",
 
+  "initiative.status.active": "Active",
+  "initiative.status.done": "Done",
+  "initiative.status.archived": "Archived",
+  "initiative.space.conversations": "Conversations",
+  "initiative.space.docs": "Docs",
+  "initiative.space.docs.empty": "No docs yet",
+  "initiative.space.docs.empty.description": "Drop markdown files into this folder to see them here",
+  "initiative.space.empty": "Nothing here yet",
+  "initiative.space.empty.description": "Tag a session with Initiative:{{name}} to add it to this space",
+  "initiative.notFound": "This initiative cannot be found",
+  "initiative.notFound.description": "This page points to an initiative that no longer exists on this server.",
+
   "session.tab.session": "Session",
   "session.tab.more": "More...",
   "session.view.select": "Session view",

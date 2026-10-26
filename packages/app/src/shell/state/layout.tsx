@@ -45,6 +45,7 @@ export type LayoutRoute =
   | { type: "connect" }
   | { type: "draft"; draftID: string }
   | { type: "session"; sessionId: string; server: ServerConnection.Key }
+  | { type: "initiative"; initiativeId: string; server: ServerConnection.Key }
 
 export const currentRoute = (pathname: string, search: string): LayoutRoute => {
   const parts = pathname.split("/").filter(Boolean)
@@ -67,6 +68,14 @@ export const currentRoute = (pathname: string, search: string): LayoutRoute => {
     return {
       type: "session",
       sessionId: parts[3],
+      server: requireServerKey(parts[1]),
+    }
+  }
+
+  if (parts[0] === "server" && parts[2] === "initiative" && parts[3]) {
+    return {
+      type: "initiative",
+      initiativeId: parts[3],
       server: requireServerKey(parts[1]),
     }
   }

@@ -27,6 +27,8 @@ const TargetSessionRouteContent = lazy(() =>
   loadSessionRoute().then((module) => ({ default: module.TargetSessionRouteContent })),
 )
 
+const InitiativeRoute = lazy(() => import("@/initiative/route").then((module) => ({ default: module.InitiativeRoute })))
+
 export function preloadRoute(url: string) {
   const pathname = url.split(/[?#]/, 1)[0]
 
@@ -36,6 +38,8 @@ export function preloadRoute(url: string) {
 
   if (/^\/server\/[^/]+\/session\/[^/]+$/.test(pathname))
     return TargetSessionRouteContent.preload().then(() => undefined)
+
+  if (/^\/server\/[^/]+\/initiative\/[^/]+$/.test(pathname)) return InitiativeRoute.preload().then(() => undefined)
 
   return Promise.resolve()
 }
@@ -64,6 +68,22 @@ export function AppRoutes() {
         )}
       />
       <Route path="/new-session" component={DraftRoute} />
+      <Route
+        path="/server/:serverKey/initiative/:id"
+        component={() => (
+          <Suspense
+            fallback={
+              <div class="flex min-h-0 flex-1 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
+                <SessionPanelFrame raised />
+              </div>
+            }
+          >
+            <TargetServerRoute>
+              <InitiativeRoute />
+            </TargetServerRoute>
+          </Suspense>
+        )}
+      />
     </Route>
   )
 }
