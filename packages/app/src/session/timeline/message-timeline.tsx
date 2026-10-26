@@ -26,6 +26,7 @@ import { parseCommentNote, readPromptPresentation } from "@/composer/comment-not
 import { parseVoiceDelegation } from "./voice-delegation"
 import { useCommand } from "@/shell/commands/command"
 import { SessionAncestorTrail, SessionProjectMenu, SessionTitleHeader } from "../session-identity-header"
+import { SessionMetadataControls } from "@/session/header/session-metadata-controls"
 import { SessionHeaderSpacer } from "@/session/header/session-header"
 import { SessionRunningMenu } from "@/session/header/session-running-menu"
 
@@ -531,6 +532,9 @@ function MessageTimelineView(
                         onBlur={() => void saveTitleEditor()}
                       />
                     </Show>
+                  </Show>
+                  <Show when={!title.editing}>
+                    <SessionMetadataControls sessionID={sessionID()} session={props.session.data.info()} />
                   </Show>
                   <Show when={!parentID()}>{runningMenu()}</Show>
                   <Show when={!parentID() && sessionID()} keyed>

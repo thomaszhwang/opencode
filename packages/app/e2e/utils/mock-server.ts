@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test"
-import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
+import type { OpenCodeEvent, SessionMessageInfo, SessionMetadata } from "@opencode/client/promise"
 import { Permission } from "@opencode/schema/permission"
 import { Worktree } from "@opencode/schema/worktree"
 import { Duration, Effect, Layer, Option, Predicate, Schema } from "effect"
@@ -1357,10 +1357,26 @@ function mockHandlers(
         },
         sessionRename: (ctx) =>
           Effect.sync(() => {
-            const title = Option.getOrUndefined(decodeSessionRename(ctx.payload))?.title
+            const update = Option.getOrUndefined(decodeSessionRename(ctx.payload))
             const session = config.sessions.find((item) => item.id === ctx.params.sessionID)
 
-            if (session && title !== undefined) session.title = title
+            if (!session || !update) return
+            if (update.title !== undefined) session.title = update.title
+            // Like the server, a metadata PATCH replaces the record wholesale,
+            // bumps `time.updated`, and publishes `session.metadata.updated`.
+            if (update.metadata === undefined) return
+            session.metadata = update.metadata
+            session.time = { ...(Predicate.isObject(session.time) ? session.time : {}), updated: Date.now() }
+            state.emit([
+              {
+                id: `evt_session_metadata_updated_${ctx.params.sessionID}`,
+                created: Date.now(),
+                type: "session.metadata.updated",
+                durable: { aggregateID: ctx.params.sessionID, seq: 1, version: 1 },
+                location: { directory: requestDirectory(config, ctx.request) },
+                data: { sessionID: ctx.params.sessionID, metadata: update.metadata as SessionMetadata },
+              },
+            ])
           }).pipe(Effect.andThen(noContent)),
         sessionCommand: (ctx) => {
           const recordCommand = config.onCommand
@@ -1539,6 +1555,7 @@ export function currentSession(session: MockSession, fallbackDirectory?: string)
     ...decodeSessionOutcome(session),
     time: { created: seed.time?.created ?? 0, updated: seed.time?.updated ?? 0, ...seed.time },
     title: session.title ?? session.id,
+    metadata: session.metadata,
     location: { directory: seed.location?.directory ?? seed.directory ?? fallbackDirectory },
     subpath: session.subpath ?? session.path,
     revert: session.revert,
@@ -1571,7 +1588,9 @@ const decodeSessionCreate = Schema.decodeUnknownOption(
   Schema.Struct({ id: lenient(Schema.String), title: lenient(Schema.String), parentID: lenient(Schema.String) }),
 )
 
-const decodeSessionRename = Schema.decodeUnknownOption(Schema.Struct({ title: Schema.String }))
+const decodeSessionRename = Schema.decodeUnknownOption(
+  Schema.Struct({ title: lenient(Schema.String), metadata: lenient(Schema.JsonObject) }),
+)
 
 const decodeRevertStage = Schema.decodeUnknownOption(Schema.Struct({ messageID: Schema.String }))
 

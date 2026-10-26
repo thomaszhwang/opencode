@@ -5,7 +5,7 @@ import { Divider } from "@opencode/ui/divider"
 import type { SessionInfo } from "@opencode/client/promise"
 import { useLanguage } from "@/runtime/i18n/language"
 import { sessionTagsFromMetadata } from "@/session/session-tags"
-import type { SessionMetadataController } from "@/session/session-metadata"
+import { resolveCurrentSession, type SessionMetadataController } from "@/session/session-metadata"
 import { sessionTitle } from "@/session/title"
 import { SessionTagEditor } from "./session-tag-editor"
 
@@ -14,13 +14,7 @@ export function DialogSessionTags(props: { session: SessionInfo; metadata: Sessi
   const dialog = useDialog()
   const tags = props.metadata.tags
 
-  // Prefer the live synced session once it is strictly newer than the passed
-  // one (it updates after writes via SSE); otherwise trust the passed session.
-  const current = () => {
-    const live = tags.session(props.session.id)
-    const base = live && live.time.updated > props.session.time.updated ? live : props.session
-    return sessionTagsFromMetadata(base)
-  }
+  const current = () => sessionTagsFromMetadata(resolveCurrentSession(tags.session(props.session.id), props.session))
 
   return (
     <Dialog fit>
