@@ -115,6 +115,8 @@ export interface MockServerConfig {
   labels?: Resolvable<unknown[]>
   onLabelCreate?: (body: unknown) => unknown
   onLabelRemove?: (labelID: string) => void
+  // Initiatives served by `/api/initiative`.
+  initiatives?: Resolvable<unknown[]>
   // Replaces the `/api/worktree` inventory, which defaults to the directory plus project sandboxes.
   worktrees?: Resolvable<unknown[]>
   // Without them, creating or removing a worktree answers 501 MockUnsupported. `onWorktreeCreate` may hold the request
@@ -943,6 +945,7 @@ function mockHandlers(
             data: resolve(config.commands ?? []),
           })),
         skill: () => Effect.sync(() => ({ location: location(config), data: resolve(config.skills ?? []) })),
+        initiative: () => Effect.sync(() => resolve(config.initiatives ?? [])),
         plugin: () => Effect.sync(() => ({ location: location(config), data: resolve(config.plugins ?? []) })),
         // `label.list` is not Location.response-backed, so the wire body is a bare array (like worktreeList).
         label: () => Effect.sync(() => resolve(config.labels ?? [])),

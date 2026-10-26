@@ -30,8 +30,16 @@ export function createSessionMetadata(input: {
   // home rows and headers repaint on external writes without a reload.
   const unsubscribe = input.event.on("session.metadata.updated", (event) => {
     const current = input.data.session.get(event.data.sessionID)
-    if (!current) return
-    input.data.session.remember({ ...current, metadata: event.data.metadata })
+    if (current) {
+      input.data.session.remember({ ...current, metadata: event.data.metadata })
+      return
+    }
+    // Home index rows are usually not synced into the store; fetch the record
+    // (post-event state) so external writes repaint those rows too.
+    void input.api.session
+      .get({ sessionID: event.data.sessionID })
+      .then((info) => input.data.session.remember(info))
+      .catch(() => {})
   })
   onCleanup(unsubscribe)
 
@@ -45,7 +53,11 @@ export function createSessionMetadata(input: {
     const next: Promise<boolean> = (writes.get(session.id) ?? Promise.resolve())
       .then(async () => {
         const fresh = await input.api.session.get({ sessionID: session.id })
-        await input.api.session.update({ sessionID: session.id, metadata: merge(fresh) })
+        const metadata = merge(fresh)
+        await input.api.session.update({ sessionID: session.id, metadata })
+        // Home index rows merge the live store over the fetched index, so land
+        // the write locally at once — the session may not be synced yet.
+        input.data.session.remember({ ...fresh, metadata })
         return true
       })
       .catch((error: unknown) => {

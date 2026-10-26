@@ -1,8 +1,8 @@
-import { createMemo, createSignal, For, Show } from "solid-js"
 import { Icon } from "@opencode/ui/icon"
 import { TextInput } from "@opencode/ui/text-input"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
-import { filterTagSuggestions } from "./session-tags"
+import { filterTagSuggestions } from "@/session/session-tags"
 
 export function SessionTagEditor(props: {
   tags: string[]
@@ -41,7 +41,7 @@ export function SessionTagEditor(props: {
                 {tag}
                 <button
                   type="button"
-                  aria-label={language.t("dialog.session.tags.removeTag", { tag })}
+                  aria-label={language.t("dialog.session.tags.remove", { tag })}
                   class="flex shrink-0 cursor-pointer items-center text-v2-icon-icon-muted hover:text-v2-icon-icon-base"
                   onClick={() => props.onRemove(tag)}
                 >

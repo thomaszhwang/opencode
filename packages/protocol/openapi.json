@@ -12555,6 +12555,295 @@
         }
       }
     },
+    "/api/initiative": {
+      "get": {
+        "tags": ["initiative"],
+        "operationId": "initiative.list",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Initiative.Info"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "Get all initiatives saved on this server.",
+        "summary": "List initiatives"
+      },
+      "post": {
+        "tags": ["initiative"],
+        "operationId": "initiative.create",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Initiative.Info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Initiative.Info"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ConflictError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "Create an initiative grouping sessions under an `Initiative:<Name>` tag.",
+        "summary": "Create initiative",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Initiative.CreateInput"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/initiative/{initiativeID}": {
+      "delete": {
+        "tags": ["initiative"],
+        "operationId": "initiative.remove",
+        "parameters": [
+          {
+            "name": "initiativeID",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Initiative.ID"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "Delete an initiative. Sessions keep their tags and docs stay on disk.",
+        "summary": "Delete initiative"
+      }
+    },
+    "/api/initiative/{initiativeID}/doc": {
+      "get": {
+        "tags": ["initiative"],
+        "operationId": "initiative.doc.list",
+        "parameters": [
+          {
+            "name": "initiativeID",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Initiative.ID"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Initiative.DocInfo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "InitiativeNotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeNotFoundErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "List the markdown documents in an initiative's on-disk docs folder.",
+        "summary": "List initiative docs"
+      }
+    },
+    "/api/initiative/{initiativeID}/doc/{name}": {
+      "get": {
+        "tags": ["initiative"],
+        "operationId": "initiative.doc.read",
+        "parameters": [
+          {
+            "name": "initiativeID",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Initiative.ID"
+            },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/markdown; charset=utf-8": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidRequestErrorEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "InitiativeNotFoundError",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InitiativeNotFoundErrorEncoded"
+                }
+              }
+            }
+          }
+        },
+        "description": "Read a markdown document from an initiative's on-disk docs folder.",
+        "summary": "Read initiative doc"
+      }
+    },
     "/api/vcs/init": {
       "post": {
         "tags": ["vcs"],
@@ -16270,6 +16559,102 @@
           }
         },
         "required": ["data"],
+        "additionalProperties": false
+      },
+      "Initiative.CreateInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "done", "archived"]
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "Initiative.DocInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "timeUpdated": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["name", "timeUpdated"],
+        "additionalProperties": false
+      },
+      "Initiative.ID": {
+        "type": "string",
+        "pattern": "^ini_"
+      },
+      "Initiative.Info": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Initiative.ID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "done", "archived"]
+          },
+          "timeCreated": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          },
+          "timeUpdated": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "enum": ["Infinity", "-Infinity", "NaN"]
+              }
+            ]
+          }
+        },
+        "required": ["id", "name", "status", "timeCreated", "timeUpdated"],
+        "additionalProperties": false
+      },
+      "InitiativeNotFoundErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["InitiativeNotFoundError"]
+          },
+          "initiativeID": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "initiativeID", "message"],
         "additionalProperties": false
       },
       "InstructionEntry.Info": {
@@ -21593,6 +21978,10 @@
     {
       "name": "worktree",
       "description": "Project-based worktree management routes."
+    },
+    {
+      "name": "initiative",
+      "description": "Initiative routes."
     },
     {
       "name": "vcs",

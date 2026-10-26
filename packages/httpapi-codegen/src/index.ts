@@ -594,7 +594,7 @@ function assertPromiseEndpoint(endpoint: Endpoint) {
     }
   } else if (!HttpApiSchema.isNoContent(success.ast)) {
     const encoding = resolveHttpApiEncoding(success.ast)?._tag ?? "Json"
-    if (encoding !== "Json" && encoding !== "Uint8Array") {
+    if (encoding !== "Json" && encoding !== "Uint8Array" && encoding !== "Text") {
       throw new GenerationError({ reason: `Unsupported Promise success encoding: ${name}` })
     }
   }
@@ -936,7 +936,7 @@ function renderPromiseClient(groups: ReadonlyArray<Group>) {
         endpoint.payloads.length === 0 ? undefined : `body: ${part("payload")}`,
       ].filter((value): value is string => value !== undefined)
       const declaredStatuses = [...new Set(endpoint.errors.map((error) => error.status))]
-      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}], empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""}${isBinaryPayload(endpoint) ? ", binaryBody: true" : ""} }`
+      const descriptor = `{ method: ${JSON.stringify(endpoint.endpoint.method)}, path: ${path}${parts.length === 0 ? "" : `, ${parts.join(", ")}`}, successStatus: ${resolveHttpApiStatus(endpoint.successes[0].ast) ?? 200}, declaredStatuses: [${declaredStatuses.join(", ")}], empty: ${endpoint.operation.success === "void"}${isBinarySchema(endpoint.successes[0]) ? ", binary: true" : ""}${isTextSchema(endpoint.successes[0]) ? ", text: true" : ""}${isBinaryPayload(endpoint) ? ", binaryBody: true" : ""} }`
       if (endpoint.operation.success === "stream") {
         const success = endpoint.successes[0]
         if (!isStreamSchema(success) || success._tag !== "StreamSse" || success.sseMode !== "data") {
@@ -1208,6 +1208,7 @@ function preserveStringSuggestions(type: string) {
 function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Group>) {
   const endpoints = groups.flatMap((group) => group.endpoints)
   const usesBinary = endpoints.some((endpoint) => isBinarySchema(endpoint.successes[0]))
+  const usesText = endpoints.some((endpoint) => isTextSchema(endpoint.successes[0]))
   const usesWildcard = endpoints.some((endpoint) => promiseWildcardInput(endpoint) !== undefined)
 
   const sseReady = replaceOne(content, "let next: ReadableStreamReadResult<Uint8Array>", "let next")
@@ -1233,13 +1234,20 @@ function normalizePromiseClientContent(content: string, groups: ReadonlyArray<Gr
         'body:\n          descriptor.body === undefined\n            ? undefined\n            : descriptor.binaryBody\n              ? (descriptor.body as RequestInit["body"])\n              : JSON.stringify(descriptor.body),',
       )
     : binaryReady
+  const textReady = usesText
+    ? replaceOne(
+        replaceOne(binaryBodyReady, "readonly empty: boolean\n", "readonly empty: boolean\n  readonly text?: true\n"),
+        "if (descriptor.empty) {",
+        "if (descriptor.text) return (await response.text()) as A\n    if (descriptor.empty) {",
+      )
+    : binaryBodyReady
   return usesWildcard
     ? replaceOne(
-        binaryBodyReady,
+        textReady,
         "function appendQuery(params: URLSearchParams, key: string, value: unknown): void {",
         'function encodePath(value: string): string {\n  return value.split("/").map(encodeURIComponent).join("/")\n}\n\nfunction appendQuery(params: URLSearchParams, key: string, value: unknown): void {',
       )
-    : binaryBodyReady
+    : textReady
 }
 
 function isBinaryPayload(endpoint: Endpoint) {
@@ -1279,6 +1287,10 @@ function promiseWildcardInput(endpoint: Endpoint): PromiseInputField | undefined
 
 function isBinarySchema(schema: Schema.Top) {
   return (resolveHttpApiEncoding(schema.ast)?._tag ?? "Json") === "Uint8Array"
+}
+
+function isTextSchema(schema: Schema.Top) {
+  return (resolveHttpApiEncoding(schema.ast)?._tag ?? "Json") === "Text"
 }
 
 function promisePath(path: string, input: ReadonlyArray<InputField>, wildcard?: PromiseInputField) {

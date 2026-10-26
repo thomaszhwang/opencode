@@ -1,9 +1,10 @@
-import type { SessionInfo } from "@opencode/client/promise"
+import type { InitiativeInfo, SessionInfo } from "@opencode/client/promise"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { Button } from "@opencode/ui/button"
 import { DialogFooter, DialogHeader, DialogTitleGroup, Dialog } from "@opencode/ui/dialog"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/solid-query"
-import { type Accessor, createEffect, createMemo, type JSX, startTransition, untrack } from "solid-js"
+import { type Accessor, createEffect, createMemo, createResource, type JSX, startTransition, untrack } from "solid-js"
+import { Schema } from "effect"
 import { notifySessionTabsRemoved } from "@/shell/titlebar/session-events"
 import { useCommand } from "@/shell/commands/command"
 import {
@@ -18,15 +19,29 @@ import { ServerConnection } from "@/runtime/server/registry"
 import { sessionHasOpenTab, useTabs } from "@/shell/tabs/tabs"
 import { errorMessage } from "@/shell/layout/helpers"
 import { useSessionTabAvatarState } from "@/shell/layout/project-avatar-state"
-import { sessionTreeIDs } from "@/session/requests/session-request-tree"
+import { sessionTreeIDs, sessionPermissionRequest, sessionFormRequest } from "@/session/requests/session-request-tree"
 import { pathKey } from "@/workspaces/path-key"
 import { fetchSessionExport, saveSessionExport, sessionExportFilename } from "@/session/commands/export"
 import { usePlatform } from "@/runtime/platform/platform"
 import { sessionLabel, sessionTitle } from "@/session/title"
 import { showToast } from "@/shell/notifications/toast"
+import { projectSettingsKey, useSettings } from "@/settings/model"
+import { Persist, persisted } from "@/runtime/persistence/storage"
+import { Persistence } from "@/runtime/persistence/schema"
+import { isInitiativeMember, sessionTagsFromMetadata, toggleSessionTag } from "@/session/session-tags"
+import { DialogSessionTags } from "@/session/dialog-session-tags"
+import { DialogSessionNote } from "@/session/dialog-session-note"
 import { archiveHomeSession } from "./archive"
 import type { HomeController } from "../model"
 import { buildHomeSessionRecords, homeProjectForSession, homeSessionLocation, type HomeSessionRecord } from "./records"
+import { groupHomeSessions, type HomeSessionGroupId } from "./groups"
+import { resolveGroupCollapsed } from "./collapse"
+import { defaultGroupOrder, orderGroups, resolveGroupOrder } from "./order"
+import { resolveGroupTerminalVisibility, type HomeTerminalTag } from "./visibility"
+import { countHomeSessionBadges, resolveHomeSessionBadge, type HomeSessionBadge } from "./status"
+import { activeStatusFilters, statusFilterMatches } from "./filter"
+import { DialogSection } from "./dialog-section"
+import { DialogInitiative } from "./dialog-initiative"
 
 export type { HomeSessionRecord } from "./records"
 
@@ -34,12 +49,25 @@ export type { HomeSessionRecord } from "./records"
 const selectSessions = (sessions: SessionInfo[]) => () => sessions
 
 export type HomeSessionGroup = {
-  id: "today" | "yesterday" | "older"
+  id: HomeSessionGroupId
   title: string
   sessions: HomeSessionRecord[]
+  kind: "fixed" | "label"
 }
 
 export type OpenSessionOptions = { background?: boolean }
+
+// Same `opencode.global.dat:home.sessions` key and field names as v1, so v1
+// prefs (collapsed, order, statusFilters, terminalVisibility, incl. label:<id>
+// group ids) decode here unchanged (contracts §4).
+const HomeSessionsState = Persistence.struct({
+  collapsed: Persistence.record(Schema.Boolean),
+  statusFilters: Persistence.record(Schema.Boolean),
+  order: Persistence.array(Schema.String),
+  terminalVisibility: Persistence.record(
+    Persistence.struct({ done: Schema.optional(Schema.Boolean), abandoned: Schema.optional(Schema.Boolean) }),
+  ),
+})
 
 export function createHomeSessionsController(home: HomeController) {
   const tabs = useTabs()
@@ -47,6 +75,7 @@ export function createHomeSessionsController(home: HomeController) {
   const dialog = useDialog()
   const language = useLanguage()
   const platform = usePlatform()
+  const settings = useSettings()
   const queryClient = useQueryClient()
 
   const projectDirectories = createMemo(() => {
@@ -76,20 +105,43 @@ export function createHomeSessionsController(home: HomeController) {
     }
   })
 
-  const indexedSessions = createMemo(() => {
+  const [_state, setState, _, ready] = persisted(Persist.global("home.sessions"), HomeSessionsState, {
+    collapsed: {},
+    statusFilters: {},
+    order: [],
+    terminalVisibility: {},
+  })
+  const [state] = createResource(
+    () => ready.promise ?? Promise.resolve(),
+    (promise) => promise.then(() => _state),
+    { initialValue: _state },
+  )
+
+  const statusFilterTags = createMemo(() => activeStatusFilters(state().statusFilters))
+
+  // The fetched index overlaid with the live session store, bounded by the
+  // load-time retention; counts (initiative chips) and, while a quick filter
+  // is active, the visible rows draw from this full history.
+  const mergedSessions = createMemo(() => {
     const ctx = home.server.focusedContext()
     const conn = home.server.focused()
 
     if (!ctx || !conn) return []
 
-    return retainHomeSessions(
-      ctx.data.session.apply(
-        mergeHomeSessionIndex(sessionLoad.isPending ? [] : (sessionLoad.data?.() ?? []), ctx.data.session.list()),
-      ),
-      HOME_SESSION_LIMIT,
-      Date.now(),
+    return ctx.data.session.apply(
+      mergeHomeSessionIndex(sessionLoad.isPending ? [] : (sessionLoad.data?.() ?? []), ctx.data.session.list()),
     )
   })
+
+  // While a quick filter is active, retain the full session history so
+  // filtering covers every session, not just the most recent HOME_SESSION_LIMIT.
+  const indexedSessions = createMemo(() =>
+    retainHomeSessions(
+      mergedSessions(),
+      statusFilterTags().length > 0 ? Number.MAX_SAFE_INTEGER : HOME_SESSION_LIMIT,
+      Date.now(),
+    ),
+  )
 
   const allRecords = createMemo(() =>
     buildHomeSessionRecords({
@@ -100,8 +152,106 @@ export function createHomeSessionsController(home: HomeController) {
     }),
   )
 
-  const records = createMemo(() => allRecords().slice(0, HOME_SESSION_LIMIT))
-  const groups = createMemo(() => groupSessions(records(), language))
+  // Tags live in session metadata (server-side), so read them off the record's
+  // session rather than a client-side store.
+  const tagsBySession = createMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const record of allRecords()) map.set(record.session.id, sessionTagsFromMetadata(record.session))
+    return map
+  })
+
+  const records = createMemo(() => {
+    const filters = statusFilterTags()
+    if (filters.length === 0) return allRecords().slice(0, HOME_SESSION_LIMIT)
+    return allRecords().filter((record) => statusFilterMatches(tagsBySession().get(record.session.id) ?? [], filters))
+  })
+
+  // User sections are server-side labels: `label:<id>` ids, AND tag membership,
+  // creation order (the provider's list order) after the fixed top sections.
+  const sections = createMemo(() =>
+    (home.server.focusedContext()?.labels.list() ?? []).map((label) => ({
+      id: `label:${label.id}` as const,
+      title: label.name,
+      tags: label.tags,
+    })),
+  )
+  const groupDefaults = createMemo(() => defaultGroupOrder(sections().map((section) => section.id)))
+  const groups = createMemo(() =>
+    orderGroups(
+      groupHomeSessions(records(), {
+        tags: (record) => tagsBySession().get(record.session.id) ?? [],
+        titles: {
+          initiatives: language.t("home.sessions.group.initiatives"),
+          userRequests: language.t("home.sessions.group.userRequests"),
+          recent: language.t("sidebar.project.recentSessions"),
+        },
+        sections: sections(),
+        visibility: (id) => resolveGroupTerminalVisibility(state().terminalVisibility, id),
+      }),
+      state().order as HomeSessionGroupId[],
+      groupDefaults(),
+    ),
+  )
+
+  // Badge inputs are exactly what the row avatar hook reads
+  // (shell/layout/project-avatar-state.ts), so expanding a section and
+  // counting dots and spinners reproduces the collapsed header badges.
+  const sessionBadges = createMemo(() => {
+    const map = new Map<string, HomeSessionBadge>()
+    const ctx = home.server.focusedContext()
+
+    if (!ctx) return map
+
+    for (const record of records()) {
+      const id = record.session.id
+      const sessions = [...new Set([id, ...ctx.data.session.family(id)])].flatMap((sessionID) => {
+        const info = ctx.data.session.get(sessionID)
+
+        return info ? [info] : []
+      })
+      const project = projectSettingsKey(ctx.sdk.scope, record.session.projectID)
+      const needsAttention =
+        (!settings.permissions.autoApproves(project) &&
+          !!sessionPermissionRequest(sessions, ctx.data.session.permission.list, id)) ||
+        !!sessionFormRequest(sessions, ctx.data.session.form.list, id)
+      const busy = (sessionID: string) =>
+        ctx.data.session.status(sessionID) === "running" ||
+        ctx.data.session.pending.list(sessionID).some((item) => item.type !== "synthetic")
+      map.set(
+        id,
+        resolveHomeSessionBadge({
+          needsAttention,
+          working: ctx.data.session.list().some((session) => ctx.data.session.root(session.id) === id && busy(session.id)),
+          unseen: ctx.notification.session.unread(id, record.session),
+        }),
+      )
+    }
+
+    return map
+  })
+
+  const initiativeCounts = createMemo(() => {
+    const map = new Map<string, number>()
+    const ctx = home.server.focusedContext()
+
+    if (!ctx) return map
+
+    const list = ctx.initiatives.list()
+
+    if (list.length === 0) return map
+
+    const sessions = mergedSessions()
+    for (const initiative of list) {
+      let count = 0
+      for (const session of sessions) {
+        if (isInitiativeMember(session, initiative.name)) count++
+      }
+      map.set(initiative.id, count)
+    }
+
+    return map
+  })
+
   const prefetched = new Set<string>()
 
   const location = (record: HomeSessionRecord) => {
@@ -314,6 +464,62 @@ export function createHomeSessionsController(home: HomeController) {
       value: location,
       sync: syncLocations,
     },
+    groups: {
+      collapsed: (id: HomeSessionGroupId) => resolveGroupCollapsed(state().collapsed, id),
+      // Aggregated over the same group sessions array the rows render.
+      status: (id: HomeSessionGroupId) => {
+        const group = groups().find((item) => item.id === id)
+        if (!group) return { waiting: 0, running: 0 }
+        const map = sessionBadges()
+        return countHomeSessionBadges(group.sessions.map((record) => map.get(record.session.id) ?? "none"))
+      },
+      toggleCollapsed: (id: HomeSessionGroupId) =>
+        setState("collapsed", id, !resolveGroupCollapsed(state().collapsed, id)),
+      terminalVisibility: (id: HomeSessionGroupId) => resolveGroupTerminalVisibility(state().terminalVisibility, id),
+      toggleTerminal: (id: HomeSessionGroupId, tag: HomeTerminalTag) =>
+        setState("terminalVisibility", id, (current) => ({ ...current, [tag]: !(current?.[tag] ?? false) })),
+      move: (id: HomeSessionGroupId, toIndex: number) => {
+        const rendered = groups().map((group) => group.id)
+        const from = rendered.indexOf(id)
+        if (from === -1 || from === toIndex) return
+        const reordered = [...rendered]
+        reordered.splice(toIndex, 0, ...reordered.splice(from, 1))
+        // Sections with no sessions aren't rendered; keep them in their existing
+        // relative order behind the reordered rendered ids.
+        const hidden = resolveGroupOrder(state().order as HomeSessionGroupId[], groupDefaults()).filter(
+          (item) => !reordered.includes(item),
+        )
+        setState("order", [...reordered, ...hidden])
+      },
+      remove: (id: HomeSessionGroupId) => {
+        if (!id.startsWith("label:")) return
+        void home.server.focusedContext()?.labels.remove(id.slice("label:".length))
+      },
+    },
+    initiatives: {
+      list: () => home.server.focusedContext()?.initiatives.list() ?? [],
+      count: (initiativeID: string) => initiativeCounts().get(initiativeID) ?? 0,
+      remove: (initiative: InitiativeInfo) => void home.server.focusedContext()?.initiatives.remove(initiative.id),
+      newInitiative: () => {
+        const server = home.selection.value().server
+        const ctx = home.server.focusedContext()
+
+        if (!server || !ctx) return
+        void dialog.show(() => <DialogInitiative server={server} create={(name) => ctx.initiatives.create(name)} />)
+      },
+      newSection: () => {
+        const ctx = home.server.focusedContext()
+
+        if (!ctx) return
+        void dialog.show(() => (
+          <DialogSection
+            labels={() => ctx.labels.list()}
+            suggestions={ctx.sessionMetadata.tags.all}
+            create={(name, tags) => ctx.labels.create(name, tags)}
+          />
+        ))
+      },
+    },
     session: {
       showProjectName: () => !home.project.selected(),
       server: () => home.selection.value().server,
@@ -388,6 +594,31 @@ export function createHomeSessionsController(home: HomeController) {
         return !!server && sessionHasOpenTab(tabs.store, server, record.session)
       },
     },
+    tags: {
+      for: (sessionID: string) => tagsBySession().get(sessionID) ?? [],
+      statusFilterTags,
+      toggleStatusFilter: (tag: string) => setState("statusFilters", tag, (active) => !active),
+      edit: (session: SessionInfo) => {
+        const ctx = home.server.focusedContext()
+
+        if (!ctx) return
+        void dialog.show(() => <DialogSessionTags session={session} metadata={ctx.sessionMetadata} />)
+      },
+      toggle: (session: SessionInfo, tag: string) => {
+        const ctx = home.server.focusedContext()
+
+        if (!ctx) return
+        void ctx.sessionMetadata.tags.setTags(session, (current) => toggleSessionTag(current, tag))
+      },
+    },
+    note: {
+      edit: (session: SessionInfo) => {
+        const ctx = home.server.focusedContext()
+
+        if (!ctx) return
+        void dialog.show(() => <DialogSessionNote session={session} metadata={ctx.sessionMetadata} />)
+      },
+    },
   }
 }
 
@@ -397,32 +628,6 @@ function directories(project: LocalProject) {
 
 export function homeSessionSearchKey(record: HomeSessionRecord) {
   return `${pathKey(record.session.location.directory)}:${record.session.id}`
-}
-
-// Calendar day in the local time zone, comparable as a number.
-function localDay(date: Date) {
-  return date.getFullYear() * 10_000 + date.getMonth() * 100 + date.getDate()
-}
-
-function groupSessions(records: HomeSessionRecord[], language: ReturnType<typeof useLanguage>): HomeSessionGroup[] {
-  const now = new Date()
-  const today = localDay(now)
-  const yesterday = localDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1))
-  const day = (record: HomeSessionRecord) => localDay(new Date(record.session.time.updated ?? record.session.time.created))
-  const todaySessions = records.filter((record) => day(record) === today)
-  const yesterdaySessions = records.filter((record) => day(record) === yesterday)
-  const olderSessions = records.filter((record) => day(record) !== today && day(record) !== yesterday)
-
-  const olderTitle =
-    todaySessions.length === 0 && yesterdaySessions.length === 0
-      ? language.t("sidebar.project.recentSessions")
-      : language.t("home.sessions.group.older")
-
-  return [
-    { id: "today" as const, title: language.t("home.sessions.group.today"), sessions: todaySessions },
-    { id: "yesterday" as const, title: language.t("home.sessions.group.yesterday"), sessions: yesterdaySessions },
-    { id: "older" as const, title: olderTitle, sessions: olderSessions },
-  ].filter((group) => group.sessions.length > 0)
 }
 
 export type HomeSessionsController = ReturnType<typeof createHomeSessionsController>

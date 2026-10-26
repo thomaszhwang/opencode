@@ -1,7 +1,13 @@
 import type { SessionInfo } from "@opencode/client/promise"
 import { Key } from "@solid-primitives/keyed"
-import { createMemo, For, Index, onCleanup, Show } from "solid-js"
+import { createMemo, For, onCleanup, Show } from "solid-js"
 import { createStore, type SetStoreFunction } from "solid-js/store"
+import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
+import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
+import { AutoScroller, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
+import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
+import { RestrictToElement } from "@dnd-kit/dom/modifiers"
+import { closestCenter } from "@dnd-kit/collision"
 import { InlineInput } from "@opencode/ui/inline-input"
 import { Spinner } from "@opencode/ui/spinner"
 import { ScrollView } from "@opencode/ui/scroll-view"
@@ -10,18 +16,23 @@ import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
+import { SessionProgressIndicatorV2 } from "@opencode/session-ui/v2/session-progress-indicator-v2"
 import { useLanguage } from "@/runtime/i18n/language"
 import { ServerConnection } from "@/runtime/server/registry"
 import { SessionTabAvatarView } from "@/shell/layout/session-tab-avatar"
 import { sessionLabel } from "@/session/title"
+import { hasNote } from "@/session/session-note"
 import { shouldOpenSessionInBackground } from "./open"
 import { createAltHold } from "./alt-hold"
+import { HOME_SESSION_FILTER_TAGS } from "./filter"
+import { HomeInitiativesIndex } from "./initiatives-index"
 import "./view.css"
 import {
   HomeSessionStatusController,
   homeSessionSearchKey,
   type HomeSessionGroup,
   type HomeSessionRecord,
+  type HomeSessionsController,
   type OpenSessionOptions,
 } from "./controller"
 
@@ -32,6 +43,26 @@ const HOME_SECTION_LABEL = "text-v2-text-text-muted [font-weight:440]"
 const HOME_SESSION_SEARCH_RESULTS_ID = "home-session-search-results"
 
 const HOME_SESSION_LONG_PRESS_MS = 500
+
+// Sessions tagged with these names (case-insensitive) light up a fixed status
+// icon in the row instead of showing a text pill.
+const HOME_SESSION_STATUS_TAGS = [
+  { tag: "done", icon: "check", activeClass: "text-v2-state-fg-success" },
+  { tag: "important", icon: "star", activeClass: "text-v2-state-fg-warning" },
+  { tag: "urgent", icon: "flame", activeClass: "text-v2-state-fg-danger" },
+] as const
+
+// Every section header carries these two toggles revealing its done/abandoned
+// sessions in place; done reuses the row status check icon.
+const HOME_SESSION_TERMINAL_TOGGLES = [
+  { tag: "done", icon: "check", show: "home.sessions.group.showDone", hide: "home.sessions.group.hideDone" },
+  {
+    tag: "abandoned",
+    icon: "outline-xmark",
+    show: "home.sessions.group.showAbandoned",
+    hide: "home.sessions.group.hideAbandoned",
+  },
+] as const
 
 // Middle-click or Cmd+click on macOS (Ctrl+click elsewhere) opens a session
 // tab in the background without navigating, matching browser conventions.
@@ -49,6 +80,13 @@ function isBackgroundOpen(event: MouseEvent) {
 export type HomeSessionsViewProps = {
   language: ReturnType<typeof useLanguage>
   groups: HomeSessionGroup[]
+  groupCollapsed: (id: HomeSessionGroup["id"]) => boolean
+  groupStatus: (id: HomeSessionGroup["id"]) => { waiting: number; running: number }
+  onToggleGroupCollapsed: (id: HomeSessionGroup["id"]) => void
+  groupTerminalVisibility: (id: HomeSessionGroup["id"]) => { done: boolean; abandoned: boolean }
+  onToggleGroupTerminal: (id: HomeSessionGroup["id"], tag: "done" | "abandoned") => void
+  onMoveGroup: (id: HomeSessionGroup["id"], toIndex: number) => void
+  onRemoveGroup: (id: HomeSessionGroup["id"]) => void
   loading: boolean
   desktop: boolean
   location: (record: HomeSessionRecord) => { worktree: string; branch: string | undefined }
@@ -63,8 +101,14 @@ export type HomeSessionsViewProps = {
   searchResults: HomeSessionRecord[]
   searchActive: string
   searchNoResultsLabel: string
-  titleOpacity: (id: HomeSessionGroup["id"]) => number
   isOpenTab: (record: HomeSessionRecord) => boolean
+  sessionTags: (sessionID: string) => string[]
+  statusFilterTags: string[]
+  onToggleStatusFilter: (tag: string) => void
+  onEditTags: (session: SessionInfo) => void
+  onEditNote: (session: SessionInfo) => void
+  onToggleTag: (session: SessionInfo, tag: string) => void
+  initiatives: HomeSessionsController["initiatives"]
   onCreateSession: () => void
   onOpenSession: (session: SessionInfo, options?: OpenSessionOptions) => void
   onArchiveSession: (session: SessionInfo) => Promise<void>
@@ -73,8 +117,6 @@ export type HomeSessionsViewProps = {
   onDeleteSession: (server: ServerConnection.Key, session: SessionInfo) => void
   onSetHoverTarget: (element: HTMLElement) => void
   onSetThumbTrack: (element: HTMLDivElement) => void
-  onSetContent: (element: HTMLDivElement) => void
-  onSetHeader: (id: HomeSessionGroup["id"], element: HTMLDivElement) => void
   onWheel: (event: WheelEvent) => void
   onSetSearchRoot: (element: HTMLDivElement) => void
   onSetSearchInput: (element: HTMLInputElement) => void
@@ -100,6 +142,7 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
   const [rowUI, setRowUI] = createStore<HomeSessionRowUI>({ menu: undefined, editor: undefined })
   const [hover, setHover] = createStore<{ sessionID: string | undefined }>({ sessionID: undefined })
   const showLocations = createAltHold(props.desktop, props.onRevealLocations)
+  let listRef!: HTMLDivElement
 
   return (
     <section
@@ -117,29 +160,25 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
           hoveredSession={hover.sessionID}
           onHoverSession={(sessionID) => setHover("sessionID", sessionID)}
         />
-        <Show when={props.groups.length > 0 && props.canCreateSession}>
-          <div class="pointer-events-none absolute right-0 top-[68px] z-20 flex md:top-[84px] lg:top-[108px]">
-            <Button
-              data-action="home-new-session"
-              variant="ghost-muted"
-              size="normal"
-              icon="edit"
-              class="pointer-events-auto h-7 px-2 [font-weight:530]"
-              onClick={props.onCreateSession}
-            >
-              {props.language.t("command.session.new")}
-            </Button>
-          </div>
-        </Show>
+        <HomeInitiativesIndex
+          server={props.server}
+          initiatives={props.initiatives.list()}
+          count={props.initiatives.count}
+          canCreateSession={props.canCreateSession}
+          onCreateSession={props.onCreateSession}
+          onRemoveInitiative={props.initiatives.remove}
+          onNewInitiative={props.initiatives.newInitiative}
+          onNewSection={props.initiatives.newSection}
+        />
       </div>
-      <div class="pointer-events-none sticky top-[68px] z-40 h-0 -mr-3 md:top-[84px] lg:top-[108px]">
+      <div class="pointer-events-none sticky top-[100px] z-40 h-0 -mr-3 md:top-[116px] lg:top-[140px]">
         <div
           ref={props.onSetThumbTrack}
           data-component="home-session-scroll-track"
-          class="relative ml-auto h-[calc(100cqh-68px)] w-3 md:h-[calc(100cqh-84px)] lg:h-[calc(100cqh-108px)]"
+          class="relative ml-auto h-[calc(100cqh-100px)] w-3 md:h-[calc(100cqh-116px)] lg:h-[calc(100cqh-140px)]"
         />
       </div>
-      <div class="-mr-3 min-h-[calc(100cqh-64px)] md:min-h-[calc(100cqh-72px)] lg:min-h-[calc(100cqh-96px)]">
+      <div class="-mr-3 min-h-[calc(100cqh-96px)] md:min-h-[calc(100cqh-104px)] lg:min-h-[calc(100cqh-128px)]">
         <Show
           when={!props.loading}
           fallback={
@@ -157,43 +196,59 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
               />
             }
           >
-            <div ref={props.onSetContent} class="flex flex-col pt-1 pr-3 pb-16 md:pt-3">
-              {/* Index keeps group subtrees mounted when the group arrays are
-                  rebuilt, so store updates cannot recreate rows mid-gesture. */}
-              <Index each={props.groups}>
-                {(group, index) => (
-                  <>
-                    <HomeSessionGroupHeader
-                      title={group().title}
-                      titleOpacity={props.titleOpacity(group().id)}
-                      onSetRef={(element) => props.onSetHeader(group().id, element)}
-                      elevated={index === 0}
+            <DragDropProvider
+              sensors={(defaults) => [
+                ...defaults.filter((sensor) => sensor !== PointerSensor),
+                PointerSensor.configure({
+                  activationConstraints: (event) =>
+                    event.pointerType === "touch"
+                      ? [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })]
+                      : [new PointerActivationConstraints.Distance({ value: 4 })],
+                  preventActivation: (event) =>
+                    event.target instanceof Element && !!event.target.closest("[data-action]"),
+                }),
+              ]}
+              modifiers={[RestrictToVerticalAxis, RestrictToElement.configure({ element: () => listRef })]}
+              plugins={(defaults) => [
+                ...defaults.filter((plugin) => plugin !== AutoScroller && plugin !== Feedback),
+                AutoScroller.configure({ acceleration: 8, threshold: { x: 0, y: 0.05 } }),
+                Feedback.configure({ dropAnimation: null }),
+              ]}
+              onDragEnd={(event) => {
+                const source = event.operation.source
+                if (event.canceled || !isSortable(source)) return
+                if (source.initialIndex !== source.index)
+                  props.onMoveGroup(source.id.toString() as HomeSessionGroup["id"], source.index)
+              }}
+            >
+              <div
+                ref={(element) => {
+                  listRef = element
+                }}
+                class="flex flex-col pt-1 pr-3 pb-16 md:pt-3"
+              >
+                {/* Keyed on group id: the group objects are recreated on every
+                    store or sync update, so iterating them directly remounts
+                    every section — killing any in-flight drag activation (the
+                    section's sortable unregisters on unmount) and discarding
+                    animations. String keys keep section elements alive and move
+                    them on reorder. */}
+                <For each={props.groups.map((group) => group.id)}>
+                  {(id, index) => (
+                    <HomeSessionGroupSlot
+                      {...props}
+                      id={id}
+                      index={index}
+                      rowUI={rowUI}
+                      setRowUI={setRowUI}
+                      showLocations={showLocations()}
+                      hoveredSession={hover.sessionID}
+                      onHoverSession={(sessionID) => setHover("sessionID", sessionID)}
                     />
-                    <div
-                      class={`flex min-w-0 flex-col gap-px pt-2 md:pt-4 ${index === props.groups.length - 1 ? "" : "mb-6"}`}
-                    >
-                      {/* Rows key by session ID: session.sync replaces the
-                          stored session object wholesale, so reference-keyed
-                          rows would be disposed mid-interaction whenever a
-                          sync response lands. */}
-                      <Key each={group().sessions} by={(record) => record.session.id}>
-                        {(record) => (
-                          <HomeSessionRow
-                            {...props}
-                            record={record()}
-                            rowUI={rowUI}
-                            setRowUI={setRowUI}
-                            showLocations={showLocations()}
-                            hoveredSession={hover.sessionID}
-                            onHoverSession={(sessionID) => setHover("sessionID", sessionID)}
-                          />
-                        )}
-                      </Key>
-                    </div>
-                  </>
-                )}
-              </Index>
-            </div>
+                  )}
+                </For>
+              </div>
+            </DragDropProvider>
           </Show>
         </Show>
       </div>
@@ -393,6 +448,44 @@ function HomeSessionSearch(
               }}
             />
           </Show>
+          <For
+            each={HOME_SESSION_STATUS_TAGS.filter((status) =>
+              (HOME_SESSION_FILTER_TAGS as readonly string[]).includes(status.tag),
+            )}
+          >
+            {(status) => {
+              const active = () => props.statusFilterTags.includes(status.tag)
+              return (
+                <Tooltip
+                  class="flex shrink-0 items-center"
+                  placement="bottom"
+                  value={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                >
+                  <button
+                    type="button"
+                    data-action={`home-session-filter-${status.tag}`}
+                    aria-pressed={active()}
+                    aria-label={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                    class={`
+                      flex shrink-0 cursor-pointer items-center justify-center rounded-[4px] p-1
+                      transition-colors duration-[120ms] ease-in-out
+                      hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
+                    `}
+                    onClick={() => props.onToggleStatusFilter(status.tag)}
+                  >
+                    <Icon
+                      name={status.icon}
+                      size="small"
+                      classList={{
+                        [status.activeClass]: active(),
+                        "text-v2-icon-icon-muted opacity-30": !active(),
+                      }}
+                    />
+                  </button>
+                </Tooltip>
+              )
+            }}
+          </For>
         </label>
       </div>
     </div>
@@ -469,23 +562,226 @@ function HomeSessionSearchResultRow(
   )
 }
 
+function HomeSessionGroupSlot(
+  props: HomeSessionsViewProps & {
+    id: HomeSessionGroup["id"]
+    index: () => number
+    rowUI: HomeSessionRowUI
+    setRowUI: SetStoreFunction<HomeSessionRowUI>
+    showLocations: boolean
+    hoveredSession: string | undefined
+    onHoverSession: (sessionID: string | undefined) => void
+  },
+) {
+  const initial = props.groups.find((group) => group.id === props.id)
+  if (!initial) return
+  const group = createMemo<HomeSessionGroup>(
+    (previous) => props.groups.find((item) => item.id === props.id) ?? previous,
+    initial,
+  )
+  // The header is the sortable element (not a wrapper around header + rows):
+  // sticky headers must stay direct children of the scroll column, or the
+  // sticky containing block re-scopes to the wrapper and the overlapping
+  // header stacking breaks. closestCenter then keeps drops over a section's rows
+  // targeting that section — the 28px header bands alone would leave most of
+  // the column with no droppable under the pointer.
+  const sortable = useSortable({
+    get id() {
+      return props.id
+    },
+    get index() {
+      return props.index()
+    },
+    collisionDetector: closestCenter,
+  })
+  const collapsed = () => props.groupCollapsed(props.id)
+  const toggles = () => {
+    const visibility = props.groupTerminalVisibility(props.id)
+    return HOME_SESSION_TERMINAL_TOGGLES.map((toggle) => {
+      const active = visibility[toggle.tag]
+      return {
+        tag: toggle.tag,
+        icon: toggle.icon,
+        active,
+        label: props.language.t(active ? toggle.hide : toggle.show),
+        onToggle: () => props.onToggleGroupTerminal(props.id, toggle.tag),
+      }
+    })
+  }
+  return (
+    <>
+      <HomeSessionGroupHeader
+        language={props.language}
+        title={group().title}
+        status={collapsed() ? props.groupStatus(props.id) : undefined}
+        onSetRef={sortable.ref}
+        onSetHandle={sortable.handleRef}
+        elevated={props.index() === 0}
+        collapse={{ collapsed: collapsed(), onToggle: () => props.onToggleGroupCollapsed(props.id) }}
+        toggles={toggles()}
+        remove={
+          group().kind === "label"
+            ? { name: group().title, onRemove: () => props.onRemoveGroup(props.id) }
+            : undefined
+        }
+      />
+      <Show when={!collapsed()}>
+        <div
+          class={`flex min-w-0 flex-col gap-px pt-2 md:pt-4 ${props.index() === props.groups.length - 1 ? "" : "mb-6"}`}
+        >
+          {/* Rows key by session ID: session.sync replaces the
+              stored session object wholesale, so reference-keyed
+              rows would be disposed mid-interaction whenever a
+              sync response lands. */}
+          <Key each={group().sessions} by={(record) => record.session.id}>
+            {(record) => (
+              <HomeSessionRow
+                {...props}
+                record={record()}
+                rowUI={props.rowUI}
+                setRowUI={props.setRowUI}
+                showLocations={props.showLocations}
+                hoveredSession={props.hoveredSession}
+                onHoverSession={props.onHoverSession}
+              />
+            )}
+          </Key>
+        </div>
+      </Show>
+    </>
+  )
+}
+
 function HomeSessionGroupHeader(props: {
+  language: HomeSessionsViewProps["language"]
   title: string
-  titleOpacity: number
+  status?: { waiting: number; running: number }
   onSetRef: (element: HTMLDivElement) => void
+  onSetHandle?: (element: HTMLDivElement) => void
   elevated?: boolean
+  collapse?: { collapsed: boolean; onToggle: () => void }
+  toggles?: { tag: "done" | "abandoned"; icon: string; active: boolean; label: string; onToggle: () => void }[]
+  remove?: { name: string; onRemove: () => void }
 }) {
+  const badges = createMemo(() => {
+    if (!props.status || (props.status.waiting === 0 && props.status.running === 0)) return
+    return props.status
+  })
   return (
     <div
       ref={props.onSetRef}
       class={`
-        pointer-events-none sticky top-[68px] flex h-7 min-w-0 items-center justify-between
-        bg-v2-background-bg-base ps-1.5 md:ps-3 md:top-[84px] lg:top-[108px]
+        pointer-events-none sticky top-[100px] flex h-7 min-w-0 items-center justify-between
+        bg-v2-background-bg-base ps-1.5 md:ps-3 md:top-[116px] lg:top-[140px]
       `}
-      classList={{ "home-session-group-header z-[5]": !!props.elevated, "z-10": !props.elevated }}
+      classList={{
+        "home-session-group-header z-[5]": !!props.elevated,
+        "z-10": !props.elevated,
+      }}
     >
-      <div class={HOME_SECTION_LABEL} style={{ opacity: props.titleOpacity }}>
-        {props.title}
+      <div ref={props.onSetHandle} class="pointer-events-auto flex min-w-0 items-center gap-1">
+        <Show when={props.collapse}>
+          {(collapse) => (
+            <button
+              type="button"
+              data-action="home-session-group-collapse"
+              aria-expanded={!collapse().collapsed}
+              aria-label={props.title}
+              class={`
+                pointer-events-auto -ml-1.5 flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                collapse().onToggle()
+              }}
+            >
+              <Icon
+                name="chevron-down"
+                size="small"
+                class="transition-transform duration-150 ease-in-out"
+                style={{ transform: `rotate(${collapse().collapsed ? -90 : 0}deg)` }}
+              />
+            </button>
+          )}
+        </Show>
+        <div class={HOME_SECTION_LABEL}>
+          <Show when={badges()} fallback={props.title}>
+            {(badges) => (
+              <>
+                {props.title}
+                <span class="ml-1 inline-flex items-center gap-1">
+                  <Show when={badges().waiting > 0}>
+                    <span
+                      role="img"
+                      class="inline-flex items-center gap-0.5"
+                      aria-label={props.language.t("home.sessions.group.status.waiting")}
+                    >
+                      <span aria-hidden="true" class="size-1.5 rounded-full bg-v2-background-bg-accent" />
+                    </span>
+                  </Show>
+                  <Show when={badges().running > 0}>
+                    <span
+                      role="img"
+                      class="inline-flex items-center gap-0.5"
+                      aria-label={props.language.t("home.sessions.group.status.running")}
+                    >
+                      <SessionProgressIndicatorV2 width={12} height={12} />
+                    </span>
+                  </Show>
+                </span>
+              </>
+            )}
+          </Show>
+        </div>
+      </div>
+      <div class="flex shrink-0 items-center gap-1">
+        <For each={props.toggles}>
+          {(toggle) => (
+            <button
+              type="button"
+              data-action={`home-session-group-toggle-${toggle.tag}`}
+              aria-pressed={toggle.active}
+              aria-label={toggle.label}
+              class={`
+                pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              classList={{ "opacity-30": !toggle.active }}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                toggle.onToggle()
+              }}
+            >
+              <Icon name={toggle.icon} size="small" />
+            </button>
+          )}
+        </For>
+        <Show when={props.remove}>
+          {(remove) => (
+            <button
+              type="button"
+              data-action="home-session-group-remove"
+              aria-label={props.language.t("home.sessions.sections.remove", { name: remove().name })}
+              class={`
+                pointer-events-auto flex size-5 shrink-0 cursor-pointer items-center justify-center
+                rounded-[4px] text-v2-icon-icon-muted
+                hover:bg-v2-overlay-simple-overlay-hover
+              `}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                remove().onRemove()
+              }}
+            >
+              <Icon name="xmark-small" size="small" />
+            </button>
+          )}
+        </Show>
       </div>
     </div>
   )
@@ -507,6 +803,12 @@ function HomeSessionRow(
   const sessionID = () => props.record.session.id
   const menu = () => (props.rowUI.menu?.id === sessionID() ? props.rowUI.menu : undefined)
   const editor = () => (props.rowUI.editor?.id === sessionID() ? props.rowUI.editor : undefined)
+  const tags = createMemo(() => props.sessionTags(props.record.session.id))
+  const statusTags = createMemo(() => {
+    const present = new Set(tags().map((tag) => tag.toLowerCase()))
+    return HOME_SESSION_STATUS_TAGS.map((status) => ({ ...status, active: present.has(status.tag) }))
+  })
+  const notePinned = createMemo(() => hasNote(props.record.session))
   let longPressTimer: ReturnType<typeof setTimeout> | undefined
   let longPressStart: { x: number; y: number } | undefined
   let suppressClick = false
@@ -653,7 +955,7 @@ function HomeSessionRow(
           aria-expanded={!!menu()}
           class={`
             flex h-10 min-w-0 w-full flex-1 shrink-0 cursor-default items-center rounded-[6px] border-0
-            bg-transparent py-3 ps-1.5 pe-3 md:ps-3 md:pe-10 text-start text-v2-text-text-muted [font-weight:530]
+            bg-transparent py-3 ps-1.5 pe-[70px] md:ps-3 text-start text-v2-text-text-muted [font-weight:530]
             transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out
             hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
           `}
@@ -721,6 +1023,51 @@ function HomeSessionRow(
             props.onOpenSession(props.record.session, { background: true })
           }}
         >
+          <span class="flex shrink-0 items-center gap-1">
+            <For each={statusTags()}>
+              {(status) => (
+                <Tooltip
+                  class="flex shrink-0 items-center"
+                  placement="bottom"
+                  value={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                >
+                  {/* Interactive span inside the row's <button> keeps the layout
+                      untouched; stopPropagation keeps clicks/keys from opening the session. */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={status.active}
+                    aria-label={props.language.t(`home.sessions.tags.status.${status.tag}`)}
+                    class="flex shrink-0 cursor-pointer items-center"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      props.onToggleTag(props.record.session, status.tag)
+                    }}
+                    onAuxClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return
+                      event.preventDefault()
+                      event.stopPropagation()
+                      props.onToggleTag(props.record.session, status.tag)
+                    }}
+                  >
+                    <Icon
+                      name={status.icon}
+                      size="small"
+                      classList={{
+                        [status.activeClass]: status.active,
+                        "text-v2-icon-icon-muted opacity-30": !status.active,
+                      }}
+                    />
+                  </span>
+                </Tooltip>
+              )}
+            </For>
+          </span>
           <HomeSessionLeadingController server={props.server} isOpenTab={props.isOpenTab} record={props.record} />
           <div
             data-slot="home-session-labels"
@@ -744,6 +1091,49 @@ function HomeSessionRow(
           </div>
         </button>
       </Show>
+      <div class="pointer-events-none absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
+        <span
+          class="flex shrink-0 items-center"
+          classList={{
+            // hover-reveal forces opacity 1 under @media (hover: none), so touch
+            // devices must also restore pointer-events or the visible button is inert.
+            "hover-reveal pointer-events-none group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto":
+              !notePinned(),
+            "pointer-events-auto": notePinned(),
+          }}
+        >
+          <Tooltip class="flex shrink-0 items-center" placement="bottom" value={props.language.t("home.sessions.note.edit")}>
+            <IconButton
+              data-action="home-session-note"
+              variant="ghost-muted"
+              size="large"
+              icon={<Icon name="note" />}
+              aria-label={props.language.t("home.sessions.note.edit")}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                props.onEditNote(props.record.session)
+              }}
+            />
+          </Tooltip>
+        </span>
+        <span class="hover-reveal pointer-events-none flex shrink-0 items-center group-hover/session:opacity-100 group-hover/session:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:pointer-events-auto">
+          <Tooltip class="flex shrink-0 items-center" placement="bottom" value={props.language.t("home.sessions.tags.edit")}>
+            <IconButton
+              data-action="home-session-tags"
+              variant="ghost-muted"
+              size="large"
+              icon={<Icon name="tag" />}
+              aria-label={props.language.t("home.sessions.tags.edit")}
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                props.onEditTags(props.record.session)
+              }}
+            />
+          </Tooltip>
+        </span>
+      </div>
       <Menu
         modal={false}
         placement="bottom-start"

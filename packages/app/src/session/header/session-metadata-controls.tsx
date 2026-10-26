@@ -30,13 +30,13 @@ export function SessionMetadataControls(props: { sessionID?: string; session?: S
   const editTags = () => {
     const session = info()
     if (!session) return
-    void dialog.show(() => <DialogSessionTags session={session} />)
+    void dialog.show(() => <DialogSessionTags session={session} metadata={server.ctx.sessionMetadata} />)
   }
 
   const editNote = () => {
     const session = info()
     if (!session) return
-    void dialog.show(() => <DialogSessionNote session={session} />)
+    void dialog.show(() => <DialogSessionNote session={session} metadata={server.ctx.sessionMetadata} />)
   }
 
   return (

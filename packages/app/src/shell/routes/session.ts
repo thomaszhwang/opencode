@@ -6,6 +6,10 @@ export function sessionHref(server: ServerConnection.Key, sessionID: string) {
   return `/server/${base64Encode(server)}/session/${sessionID}`
 }
 
+export function initiativeHref(server: ServerConnection.Key, initiativeID: string) {
+  return `/server/${base64Encode(server)}/initiative/${initiativeID}`
+}
+
 export function requireServerKey(segment: string | undefined) {
   const key = decode64(segment)
 

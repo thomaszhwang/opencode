@@ -16,7 +16,7 @@ export function Home() {
   const projects = createHomeProjectsController(home)
   const sessions = createHomeSessionsController(home)
   const search = createHomeSessionSearchController(home, sessions)
-  const scroll = createHomeScrollController(sessions.data.groups)
+  const scroll = createHomeScrollController()
 
   return (
     <div
@@ -36,7 +36,6 @@ export function Home() {
         thumbContainer={scroll.viewport.thumbTrack()}
         thumbHoverTarget={scroll.viewport.hoverTarget()}
         viewportRef={scroll.viewport.setViewport}
-        onScroll={(event) => scroll.viewport.update(event.currentTarget.scrollTop)}
         onWheel={scroll.viewport.containOuterWheel}
       >
         <div
