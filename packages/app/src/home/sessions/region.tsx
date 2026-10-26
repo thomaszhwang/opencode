@@ -15,6 +15,13 @@ export function HomeSessions(props: {
         <HomeSessionsView
           language={props.sessions.copy.language}
           groups={props.sessions.data.groups()}
+          groupCollapsed={props.sessions.groups.collapsed}
+          groupStatus={props.sessions.groups.status}
+          onToggleGroupCollapsed={props.sessions.groups.toggleCollapsed}
+          groupTerminalVisibility={props.sessions.groups.terminalVisibility}
+          onToggleGroupTerminal={props.sessions.groups.toggleTerminal}
+          onMoveGroup={props.sessions.groups.move}
+          onRemoveGroup={props.sessions.groups.remove}
           loading={props.sessions.data.loading()}
           desktop={props.sessions.platform.desktop}
           location={props.sessions.location.value}
@@ -29,8 +36,14 @@ export function HomeSessions(props: {
           searchResults={props.search.result.list()}
           searchActive={props.search.result.active()}
           searchNoResultsLabel={props.search.result.noResultsLabel()}
-          titleOpacity={props.scroll.header.titleOpacity}
           isOpenTab={props.sessions.tab.isOpen}
+          sessionTags={props.sessions.tags.for}
+          statusFilterTags={props.sessions.tags.statusFilterTags()}
+          onToggleStatusFilter={props.sessions.tags.toggleStatusFilter}
+          onEditTags={props.sessions.tags.edit}
+          onEditNote={props.sessions.note.edit}
+          onToggleTag={props.sessions.tags.toggle}
+          initiatives={props.sessions.initiatives}
           onCreateSession={props.sessions.session.create}
           onOpenSession={props.sessions.session.open}
           onArchiveSession={props.sessions.session.archive}
@@ -39,8 +52,6 @@ export function HomeSessions(props: {
           onDeleteSession={props.sessions.session.showDelete}
           onSetHoverTarget={props.scroll.viewport.setHoverTarget}
           onSetThumbTrack={props.scroll.viewport.setThumbTrack}
-          onSetContent={props.scroll.header.setContent}
-          onSetHeader={props.scroll.header.setHeader}
           onWheel={props.scroll.viewport.containWheel}
           onSetSearchRoot={props.search.element.setRoot}
           onSetSearchInput={props.search.element.setInput}

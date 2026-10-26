@@ -9,6 +9,8 @@ import { createData, createSessionRetention } from "@opencode/client/solid"
 import type { ServerScope } from "@/runtime/server/scope"
 import { createPermissionAutoApprover } from "@/session/requests/auto-approve"
 import { createSessionMetadata } from "@/session/session-metadata"
+import { createServerLabels } from "./labels"
+import { createServerInitiatives } from "./initiatives"
 import { createServerNotificationState } from "@/shell/notifications/notification"
 import { createNotificationCoordinator } from "@/shell/notifications/coordinator"
 import { useCurrentRoute } from "@/shell/state/layout"
@@ -218,6 +220,9 @@ function createServerController(
   const sync = createServerSyncContext(sdk, data)
   createPermissionAutoApprover({ sdk, data })
   const sessionMetadata = createSessionMetadata({ api: sdk.api, event: sdk.event, data, translate: language.t })
+  const connected = () => sdk.connection.status() === "connected"
+  const labels = createServerLabels({ api: sdk.api, connected, translate: language.t })
+  const initiatives = createServerInitiatives({ api: sdk.api, connected, translate: language.t })
   const notification = createServerNotificationState({ sdk, data, key: connKey, coordinator: notificationCoordinator })
 
   function enrich(project: { worktree: string; expanded: boolean }) {
@@ -275,6 +280,8 @@ function createServerController(
     sdk,
     sync,
     sessionMetadata,
+    labels,
+    initiatives,
     isLocal,
     projects: {
       ...projects,
